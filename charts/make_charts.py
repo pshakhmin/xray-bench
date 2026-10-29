@@ -216,7 +216,7 @@ def chart_throughput_rtt0(data):
     header(
         lines,
         "Throughput at RTT ≈ 0",
-        "Median MB/s (MiB/s) through SOCKS · higher is better",
+        "Median MB/s through SOCKS · higher is better",
     )
     y_axis(lines, left, right, top, base, vmax, step, "MB/s")
 
@@ -233,7 +233,7 @@ def chart_throughput_rtt0(data):
             lines.append(text(x + bar_w / 2, base + 18, glyph, 10, TEXT, "middle", 500))
         lines.append(text(gx + group_w / 2, base + 40, engine["label"], 11.5, TEXT, "middle", 600))
 
-    lines.append(text(32, 426, FOOTER + " · MB/s = MiB/s", 10, TEXT))
+    lines.append(text(32, 426, FOOTER, 10, TEXT))
     return finish_svg(lines)
 
 
@@ -261,7 +261,7 @@ def chart_throughput_rtt50(data):
     header(
         lines,
         "Single-stream download: RTT ≈ 0 vs 50 ms",
-        "↓1 median MB/s (MiB/s) · higher is better",
+        "↓1 median MB/s · higher is better",
     )
     y_axis(lines, left, right, top, base, vmax, step, "MB/s")
 
@@ -334,7 +334,7 @@ def chart_throughput_rtt50(data):
             TEXT,
         )
     )
-    lines.append(text(32, 440, "MB/s = MiB/s as reported by the bench · medians over the recorded runs.", 10, TEXT))
+    lines.append(text(32, 440, "MB/s as reported by the bench · medians over the recorded runs.", 10, TEXT))
     return finish_svg(lines)
 
 

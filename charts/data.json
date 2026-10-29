@@ -18,41 +18,53 @@
     ]
   },
   "units": {
-    "throughput": "MB/s (MiB/s as printed by the bench)",
+    "throughput": "MB/s (bytes/1e6/s, as printed by the bench)",
     "ttfb": "ms",
     "conns": "conn/s"
   },
   "notes": {
     "rtt50": "Only down1 is compared at 50 ms: at 8 streams and 50 ms netem itself is the bottleneck.",
     "pairing": "The last two engines are the same 0.2.2 build: released stock vs the PR #18 branch.",
-    "values": "Medians over the recorded runs. MB/s is MiB/s, kept as printed by the bench."
+    "values": "Medians over the recorded runs. MB/s is decimal, as printed by the bench."
   },
   "engines": [
     {
       "id": "xray",
       "label": "Xray 26.10.29",
-      "label_lines": ["Xray", "26.10.29"],
+      "label_lines": [
+        "Xray",
+        "26.10.29"
+      ],
       "source_rtt0": "results/xray_reality-rtt0-control-20261029T184602Z.json",
       "source_rtt50": "results/xray_reality-rtt50-control-20261029T184729Z.json"
     },
     {
       "id": "singbox",
       "label": "sing-box 1.14.4",
-      "label_lines": ["sing-box", "1.14.4"],
+      "label_lines": [
+        "sing-box",
+        "1.14.4"
+      ],
       "source_rtt0": "results/singbox_reality-rtt0-matrix-20261029T191216Z.json",
       "source_rtt50": "results/singbox_reality-rtt50-matrix-20261029T191231Z.json"
     },
     {
       "id": "unbihex_stock",
       "label": "Unbihex 0.2.2 (stock)",
-      "label_lines": ["Unbihex", "0.2.2 (stock)"],
+      "label_lines": [
+        "Unbihex",
+        "0.2.2 (stock)"
+      ],
       "source_rtt0": "results/unbihex_reality-rtt0-before-20261029T184605Z.json",
       "source_rtt50": "results/unbihex_reality-rtt50-stock-20261029T191332Z.json"
     },
     {
       "id": "unbihex_pr",
       "label": "Unbihex 0.2.2 + PR #18",
-      "label_lines": ["Unbihex", "0.2.2 + PR #18"],
+      "label_lines": [
+        "Unbihex",
+        "0.2.2 + PR #18"
+      ],
       "source_rtt0": "results/unbihex_reality-rtt0-after-20261029T184607Z.json",
       "source_rtt50": "results/unbihex_reality-rtt50-pr-20261029T191341Z.json"
     }
