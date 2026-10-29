@@ -14,6 +14,14 @@
 Один стенд, один прогон, медианы. «Своя пара» — клиент и сервер одного движка, REALITY,
 loopback, 16 ядер, RTT через `netem` только на порту туннеля. База `5026c2d` (v0.2.2), 2026-10-29.
 
+![Throughput при RTT≈0: Xray 360/806/341, sing-box 540/1306/530, Unbihex stock 437/1011/386, Unbihex + PR #18 430/1163/411 MB/s](charts/throughput-rtt0.svg)
+
+![Один поток при RTT≈0 и 50 мс: Unbihex stock падает с 437.5 до 5.8 MB/s, остальные держат 86–104](charts/throughput-rtt50.svg)
+
+![TTFB и темп соединений при RTT≈0: лучший TTFB у Unbihex + PR #18 (1.98 мс), лучший conn/s у него же (938)](charts/connections.svg)
+
+Точные цифры тех же прогонов:
+
 | Движок (своя пара) | ↓1, RTT≈0 | ↓8, RTT≈0 | ↑1, RTT≈0 | TTFB | conn/s | ↓1, RTT 50 мс | TTFB, RTT 50 |
 |---|---|---|---|---|---|---|---|
 | Xray 26.10.29 | 361 MB/s | 806 MB/s | 341 MB/s | 3.95 мс | 448 | 88.6 MB/s | 154 мс |
@@ -25,6 +33,10 @@ loopback, 16 ядер, RTT через `netem` только на порту ту�
 каналом (см. [Ограничения](#ограничения-важно)). «PR #18» — ветка с правками TUN, буферов
 сокетов и REALITY из [unbihex#18](https://github.com/crystalmasta/unbihex/pull/18); «stock» —
 вышедший 0.2.2.
+
+Графики и таблица собраны из одних и тех же прогонов. Пересобрать картинки:
+`python3 charts/make_charts.py`; цифры и ссылки на исходные `results/*.json` — в
+[`charts/data.json`](charts/data.json).
 
 ## Что измеряется
 
@@ -41,11 +53,7 @@ loopback, 16 ядер, RTT через `netem` только на порту ту�
 
 ## Топология
 
-```
-bench (клиент) ──SOCKS──▶ клиент движка ──REALITY/XHTTP──▶ сервер движка ──▶ sink
-     │                          ▲   netem 25+25 мс только на порт туннеля   │
-     └───────────── без задержки ─┴──────────────────────────────────────────┘
-```
+![Стенд: bench client → engine client → REALITY/XHTTP → engine server → sink; netem 25+25 мс только на порту туннеля, SOCKS и путь до sink без задержки](charts/topology.svg)
 
 - sink слушает `203.0.113.7:19000` — адрес из TEST-NET-3, добавленный на `lo`. Нужен, чтобы
   маршрутизация клиентов не уводила цель в direct: приватные адреса sing-box/Unbihex
@@ -115,6 +123,44 @@ UNBIHEX_SERVER=/path/to/old/unbihex ./stand.py up xraycl_ubisrv
 Проверяет, что при остановленном сервере трафик **перестаёт** идти, а после перезапуска —
 снова идёт. Без этого легко «намерить» прямой обход туннеля: однажды на этом стенде
 Unbihex-клиент отправил цель в direct, и цифры были в 3 раза красивее настоящих.
+
+## DNS
+
+`tools/dnsd.py` — маленький авторитативный upstream, которым управляем мы (UDP и TCP на одном
+порту, только stdlib, зона в `tools/dns-zone.json`: 200 имён, A у всех, AAAA у половины).
+DNS-сценарии направляют **собственный** резолвер движка на него — Xray `dns.servers` + freedom
+`domainStrategy: UseIP`, sing-box `dns.servers` + `domain_resolver` на direct-outbound, Unbihex
+`dns.upstream` — и делают один SOCKS CONNECT + ping в sink на каждое имя:
+
+```bash
+./stand.py dns xray_reality cold 100       # 100 некэшированных имён: задержка и запросы upstream
+./stand.py dns xray_reality warm 100       # те же имена ещё раз: кэш, 0 запросов upstream
+./stand.py dns singbox_reality stampede 20 # 20 параллельных CONNECT на одно имя: 1-2 запроса, не 20
+./stand.py dns singbox_reality dead        # первый upstream — «чёрная дыра», второй живой
+./stand.py dns xray_reality leak           # счётчики, затем dnsd остановлен: свежее имя обязано упасть
+./stand.py report
+```
+
+Опции: `--delay-ms N` замедляет ответы dnsd, `--rtt N` включает netem, `--label TEXT`. В каждом
+результате: движок, хэши бинарников, git commit, режим и задержка dnsd, число запросов по
+имени и типу, медиана/p95 задержки и признак того, что dnsd вообще получал трафик. `--fail` —
+чёрная дыра, `--refuse` — ответ REFUSED. Быстрая проверка самого dnsd:
+
+```bash
+python3 tools/dnsd.py --port 15353 --log /tmp/dnsd.jsonl --stats /tmp/dnsd.stats.json &
+dig @127.0.0.1 -p 15353 n000.dns.test A
+dig @127.0.0.1 -p 15353 +tcp n000.dns.test AAAA
+```
+
+`leak` — негативный контроль: при dnsd как единственном upstream свежее имя резолвится, и в логе
+dnsd есть запросы; после остановки dnsd тот же CONNECT обязан упасть. Если он проходит — движок
+использовал системный резолвер или кэш, и DNS-цифры ничего не стоят.
+
+**Ограничение Unbihex (0.2.2 и `dns/all` на 2026-10-29):** вне TUN-режима движок использует
+системный резолвер (`lib.rs`: `resolver = if tun_cfg.is_some() { upstream } else { system }`),
+поэтому `dns.upstream` в этом proxy-only стенде игнорируется и dnsd не получает запросов.
+DNS-сценарии для `unbihex_*` честно показывают `received: false`; для замера его DNS-стека нужен
+TUN (`/dev/net/tun`), которого на этом стенде нет. Цифры для него не выдумываются.
 
 ## Провенанс
 

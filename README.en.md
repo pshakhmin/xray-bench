@@ -14,6 +14,14 @@ link give". The limitations are listed below — read them before quoting the nu
 One bench, one run, medians. Self-pair: the client and the server of the same engine, REALITY,
 loopback, 16 cores, RTT via `netem` on the tunnel port only. Base `5026c2d` (v0.2.2), 2026-10-29.
 
+![Throughput at RTT≈0: Xray 360/806/341, sing-box 540/1306/530, Unbihex stock 437/1011/386, Unbihex + PR #18 430/1163/411 MB/s](charts/throughput-rtt0.svg)
+
+![Single stream at RTT≈0 and 50 ms: Unbihex stock falls from 437.5 to 5.8 MB/s, the others hold 86–104](charts/throughput-rtt50.svg)
+
+![TTFB and connection rate at RTT≈0: best TTFB is Unbihex + PR #18 (1.98 ms), best conn/s is the same build (938)](charts/connections.svg)
+
+Exact numbers from the same runs:
+
 | Engine (self-pair) | ↓1, RTT≈0 | ↓8, RTT≈0 | ↑1, RTT≈0 | TTFB | conn/s | ↓1, RTT 50 ms | TTFB, RTT 50 |
 |---|---|---|---|---|---|---|---|
 | Xray 26.10.29 | 361 MB/s | 806 MB/s | 341 MB/s | 3.95 ms | 448 | 88.6 MB/s | 154 ms |
@@ -25,6 +33,10 @@ These are protocol-layer numbers on loopback: compare cells with each other, not
 (see [Limitations](#limitations-important)). "PR #18" is the branch with the TUN, socket-buffer
 and REALITY changes from [unbihex#18](https://github.com/crystalmasta/unbihex/pull/18); "stock"
 is the released 0.2.2.
+
+The charts and the table come from the same runs. Regenerate the images with
+`python3 charts/make_charts.py`; the values and the source `results/*.json` files are listed in
+[`charts/data.json`](charts/data.json).
 
 ## What is measured
 
@@ -42,11 +54,7 @@ engine).
 
 ## Topology
 
-```
-bench (client) ──SOCKS──▶ engine client ──REALITY/XHTTP──▶ engine server ──▶ sink
-     │                        ▲   netem 25+25 ms on the tunnel port only     │
-     └─────────── no delay ───┴───────────────────────────────────────────────┘
-```
+![Bench path: bench client → engine client → REALITY/XHTTP → engine server → sink; netem 25+25 ms on the tunnel port only, SOCKS and the path to the sink undelayed](charts/topology.svg)
 
 - The sink listens on `203.0.113.7:19000` — a TEST-NET-3 address added to `lo`. It keeps client
   routing from sending the target direct: sing-box/Unbihex send private addresses direct, and
@@ -112,6 +120,44 @@ and `UNBIHEX_CLI` environment variables.
 It verifies that traffic **stops** when the server is stopped and resumes after a restart. Without
 it, a direct bypass is easy to measure by accident: once on this bench the Unbihex client sent the
 target direct and the numbers looked 3x better than reality.
+
+## DNS
+
+`tools/dnsd.py` is a small authoritative-ish upstream we control (UDP and TCP on the same port,
+stdlib only, zone in `tools/dns-zone.json`: 200 names, A for all and AAAA for half). The DNS
+scenarios point the engine's **own** resolver at it — Xray `dns.servers` + freedom
+`domainStrategy: UseIP`, sing-box `dns.servers` + `domain_resolver` on the direct outbound,
+Unbihex `dns.upstream` — and exchange one SOCKS CONNECT + sink ping per name:
+
+```bash
+./stand.py dns xray_reality cold 100       # 100 uncached names, per-name latency and upstream queries
+./stand.py dns xray_reality warm 100       # same names again: cache must answer, 0 upstream queries
+./stand.py dns singbox_reality stampede 20 # 20 parallel CONNECTs to one name: 1-2 queries, not 20
+./stand.py dns singbox_reality dead        # upstream 1 is a black hole, upstream 2 is healthy
+./stand.py dns xray_reality leak           # counters, then dnsd stopped: a fresh name must fail
+./stand.py report
+```
+
+Options: `--delay-ms N` makes dnsd answer slowly, `--rtt N` adds netem, `--label TEXT`. Each result
+records the engine and binary hashes, git commit, dnsd mode/delay, query counts per name and qtype,
+latency median/p95 and whether dnsd saw any traffic. `--fail` is the black hole; `--refuse` answers
+REFUSED. A quick wire check of dnsd itself:
+
+```bash
+python3 tools/dnsd.py --port 15353 --log /tmp/dnsd.jsonl --stats /tmp/dnsd.stats.json &
+dig @127.0.0.1 -p 15353 n000.dns.test A
+dig @127.0.0.1 -p 15353 +tcp n000.dns.test AAAA
+```
+
+`leak` is the negative control: with dnsd as the only upstream, a fresh name succeeds and dnsd's
+log counts the queries; after dnsd is stopped the same CONNECT must fail. If it still succeeds, the
+engine used the OS resolver or a cached answer and the DNS numbers are worthless.
+
+**Unbihex limitation (0.2.2 and `dns/all` as of 2026-10-29):** outside TUN mode the engine uses the
+system resolver (`lib.rs`: `resolver = if tun_cfg.is_some() { upstream } else { system }`), so
+`dns.upstream` is ignored in this proxy-only stand and dnsd receives no queries. The DNS scenarios
+therefore report `received: false` for `unbihex_*`; measuring its DNS stack needs a TUN device
+(`/dev/net/tun`), which this stand does not have. No numbers are invented for it.
 
 ## Provenance
 

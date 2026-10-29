@@ -1,0 +1,41 @@
+{
+  "log": { "loglevel": "warning" },
+  "dns": {
+    "servers": [ @DNS_SERVERS@ ],
+    "queryStrategy": "UseIP"
+  },
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "port": @PORT@,
+      "protocol": "vless",
+      "settings": {
+        "clients": [{ "id": "@UUID@", "email": "bench" }],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "127.0.0.1:@DEST_PORT@",
+          "xver": 0,
+          "serverNames": ["@SNI@"],
+          "privateKey": "@PRIVATE_KEY@",
+          "shortIds": ["@SHORT_ID@"]
+        }
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom",
+      "settings": {
+        "domainStrategy": "UseIP",
+        "finalRules": [
+          { "action": "allow", "ip": ["127.0.0.0/8", "192.168.0.0/16", "172.16.0.0/12", "@SINK_CIDR@", "::1/128"] }
+        ]
+      }
+    }
+  ]
+}

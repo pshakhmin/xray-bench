@@ -98,13 +98,29 @@ SERVER_PORT=$XRAY_XHTTP_PORT SOCKS_PORT=$XRAY_SOCKS NETWORK=xhttp \
 SERVER_PORT=$SINGBOX_REALITY_PORT SOCKS_PORT=$SINGBOX_SOCKS \
   render configs/singbox-client-reality.json.tmpl configs/singbox-client-reality.json
 
+# DNS scenarios (stand.py dns) re-render these with the real dnsd ports; the
+# defaults here keep the templates exercised by setup.sh.
+DNS_SERVERS_XRAY='{"address":"127.0.0.1","port":15353}'
+DNS_SERVERS_SINGBOX='{"tag":"dnsd0","type":"udp","server":"127.0.0.1","server_port":15353}'
+PORT=$XRAY_REALITY_PORT DNS_SERVERS="$DNS_SERVERS_XRAY" \
+  render configs/xray-server-reality-dns.json.tmpl configs/xray-server-reality-dns.json
+PORT=$XRAY_XHTTP_PORT DNS_SERVERS="$DNS_SERVERS_XRAY" \
+  render configs/xray-server-xhttp-reality-dns.json.tmpl configs/xray-server-xhttp-reality-dns.json
+PORT=$SINGBOX_REALITY_PORT DNS_SERVERS="$DNS_SERVERS_SINGBOX" DNS_FIRST=dnsd0 \
+  render configs/singbox-server-reality-dns.json.tmpl configs/singbox-server-reality-dns.json
+PORT=$UNBIHEX_REALITY_PORT DNS_UPSTREAMS='"127.0.0.1:15353"' \
+  render configs/unbihex-server-reality-dns.json.tmpl configs/unbihex-server-reality-dns.json
+
 # Every generated config must be valid; a broken stand fails here, not mid-measurement.
 cache/xray/xray run -test -c configs/xray-server-reality.json       >/dev/null 2>&1 || die "xray-server-reality.json is invalid"
 cache/xray/xray run -test -c configs/xray-server-xhttp-reality.json >/dev/null 2>&1 || die "xray-server-xhttp-reality.json is invalid"
 cache/xray/xray run -test -c configs/xray-client-reality.json       >/dev/null 2>&1 || die "xray-client-reality.json is invalid"
 cache/xray/xray run -test -c configs/xray-client-xhttp-reality.json >/dev/null 2>&1 || die "xray-client-xhttp-reality.json is invalid"
+cache/xray/xray run -test -c configs/xray-server-reality-dns.json      >/dev/null 2>&1 || die "xray-server-reality-dns.json is invalid"
+cache/xray/xray run -test -c configs/xray-server-xhttp-reality-dns.json >/dev/null 2>&1 || die "xray-server-xhttp-reality-dns.json is invalid"
 cache/sing-box/sing-box check -c configs/singbox-server-reality.json 2>/dev/null || say "warning: sing-box server config rejected"
 cache/sing-box/sing-box check -c configs/singbox-client-reality.json 2>/dev/null || say "warning: sing-box client config rejected"
+cache/sing-box/sing-box check -c configs/singbox-server-reality-dns.json 2>/dev/null || say "warning: sing-box DNS server config rejected"
 
 # ---------------------------------------------------------------- loopback alias, dest, sink
 ip addr add "$SINK_IP/32" dev lo 2>/dev/null || true
