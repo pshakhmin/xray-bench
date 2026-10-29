@@ -1,0 +1,112 @@
+{
+  "source": {
+    "provenance_commit": "5026c2d",
+    "release": "v0.2.2",
+    "date": "2026-10-29",
+    "machine": "16 cores",
+    "path": "loopback",
+    "rtt_method": "netem on the tunnel port only",
+    "files": [
+      "results/xray_reality-rtt0-control-20261029T184602Z.json",
+      "results/singbox_reality-rtt0-matrix-20261029T191216Z.json",
+      "results/unbihex_reality-rtt0-before-20261029T184605Z.json",
+      "results/unbihex_reality-rtt0-after-20261029T184607Z.json",
+      "results/xray_reality-rtt50-control-20261029T184729Z.json",
+      "results/singbox_reality-rtt50-matrix-20261029T191231Z.json",
+      "results/unbihex_reality-rtt50-stock-20261029T191332Z.json",
+      "results/unbihex_reality-rtt50-pr-20261029T191341Z.json"
+    ]
+  },
+  "units": {
+    "throughput": "MB/s (MiB/s as printed by the bench)",
+    "ttfb": "ms",
+    "conns": "conn/s"
+  },
+  "notes": {
+    "rtt50": "Only down1 is compared at 50 ms: at 8 streams and 50 ms netem itself is the bottleneck.",
+    "pairing": "The last two engines are the same 0.2.2 build: released stock vs the PR #18 branch.",
+    "values": "Medians over the recorded runs. MB/s is MiB/s, kept as printed by the bench."
+  },
+  "engines": [
+    {
+      "id": "xray",
+      "label": "Xray 26.10.29",
+      "label_lines": ["Xray", "26.10.29"],
+      "source_rtt0": "results/xray_reality-rtt0-control-20261029T184602Z.json",
+      "source_rtt50": "results/xray_reality-rtt50-control-20261029T184729Z.json"
+    },
+    {
+      "id": "singbox",
+      "label": "sing-box 1.14.4",
+      "label_lines": ["sing-box", "1.14.4"],
+      "source_rtt0": "results/singbox_reality-rtt0-matrix-20261029T191216Z.json",
+      "source_rtt50": "results/singbox_reality-rtt50-matrix-20261029T191231Z.json"
+    },
+    {
+      "id": "unbihex_stock",
+      "label": "Unbihex 0.2.2 (stock)",
+      "label_lines": ["Unbihex", "0.2.2 (stock)"],
+      "source_rtt0": "results/unbihex_reality-rtt0-before-20261029T184605Z.json",
+      "source_rtt50": "results/unbihex_reality-rtt50-stock-20261029T191332Z.json"
+    },
+    {
+      "id": "unbihex_pr",
+      "label": "Unbihex 0.2.2 + PR #18",
+      "label_lines": ["Unbihex", "0.2.2 + PR #18"],
+      "source_rtt0": "results/unbihex_reality-rtt0-after-20261029T184607Z.json",
+      "source_rtt50": "results/unbihex_reality-rtt50-pr-20261029T191341Z.json"
+    }
+  ],
+  "rtt0": {
+    "xray": {
+      "down1": 360.6,
+      "down8": 806.3,
+      "up1": 340.8,
+      "ttfb_median": 3.95,
+      "ttfb_p95": 4.97,
+      "conns_per_sec": 448.4
+    },
+    "singbox": {
+      "down1": 539.8,
+      "down8": 1306.4,
+      "up1": 529.7,
+      "ttfb_median": 3.34,
+      "ttfb_p95": 4.03,
+      "conns_per_sec": 562.8
+    },
+    "unbihex_stock": {
+      "down1": 437.5,
+      "down8": 1011.0,
+      "up1": 386.0,
+      "ttfb_median": 5.57,
+      "ttfb_p95": 11.59,
+      "conns_per_sec": 275.8
+    },
+    "unbihex_pr": {
+      "down1": 430.3,
+      "down8": 1163.1,
+      "up1": 411.0,
+      "ttfb_median": 1.98,
+      "ttfb_p95": 8.08,
+      "conns_per_sec": 938.3
+    }
+  },
+  "rtt50": {
+    "xray": {
+      "down1": 88.6,
+      "ttfb_median": 153.8
+    },
+    "singbox": {
+      "down1": 103.6,
+      "ttfb_median": 154.0
+    },
+    "unbihex_stock": {
+      "down1": 5.8,
+      "ttfb_median": 156.2
+    },
+    "unbihex_pr": {
+      "down1": 85.8,
+      "ttfb_median": 152.2
+    }
+  }
+}

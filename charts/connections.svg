@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 428" width="100%" role="img" aria-labelledby="chart-title chart-desc" font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+<title id="chart-title">Latency and connection rate at RTT ≈ 0</title>
+<desc id="chart-desc">Two panels at RTT close to zero. Left: time to first byte in ms, median bar and p95 whisker, lower is better. Right: connections per second, higher is better. Unbihex 0.2.2 + PR #18 has the lowest TTFB at 1.98 ms with a p95 of 8.08 ms and the highest connection rate at 938 conn/s. Unbihex 0.2.2 (stock) has the highest p95 at 11.59 ms and the lowest connection rate at 276 conn/s. Xray: 3.95 ms median, 4.97 ms p95, 448 conn/s. sing-box: 3.34 ms median, 4.03 ms p95, 563 conn/s.</desc>
+<text x="32" y="38" font-size="19" fill="#747987" font-weight="650">Latency and connection rate at RTT ≈ 0</text>
+<text x="32" y="58" font-size="11.5" fill="#747987">Medians over the recorded runs · TTFB lower is better · conn/s higher is better</text>
+<text x="32" y="92" font-size="12.5" fill="#747987" font-weight="650">Time to first byte</text>
+<text x="32" y="110" font-size="10" fill="#747987">ms · bar = median, whisker = p95 · lower is better</text>
+<text x="64" y="127" font-size="10" fill="#747987" text-anchor="end" font-weight="500">ms</text>
+<line x1="72" y1="352" x2="424" y2="352" stroke="#7f8999" stroke-width="1"/>
+<text x="64" y="355.4" font-size="10" fill="#747987" text-anchor="end">0</text>
+<line x1="72" y1="316" x2="424" y2="316" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="64" y="319.4" font-size="10" fill="#747987" text-anchor="end">2</text>
+<line x1="72" y1="280" x2="424" y2="280" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="64" y="283.4" font-size="10" fill="#747987" text-anchor="end">4</text>
+<line x1="72" y1="244" x2="424" y2="244" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="64" y="247.4" font-size="10" fill="#747987" text-anchor="end">6</text>
+<line x1="72" y1="208" x2="424" y2="208" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="64" y="211.4" font-size="10" fill="#747987" text-anchor="end">8</text>
+<line x1="72" y1="172" x2="424" y2="172" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="64" y="175.4" font-size="10" fill="#747987" text-anchor="end">10</text>
+<line x1="72" y1="136" x2="424" y2="136" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="64" y="139.4" font-size="10" fill="#747987" text-anchor="end">12</text>
+<rect x="96" y="280.9" width="40" height="71.1" rx="3" fill="#0e7490"/>
+<text x="100" y="273.9" font-size="10" fill="#747987" text-anchor="end" font-weight="600">3.95</text>
+<line x1="116" y1="280.9" x2="116" y2="262.54" stroke="#0e7490" stroke-width="1.4"/>
+<line x1="106" y1="262.54" x2="126" y2="262.54" stroke="#0e7490" stroke-width="1.4"/>
+<text x="130" y="265.74" font-size="10" fill="#747987">4.97</text>
+<rect x="184" y="291.88" width="40" height="60.12" rx="3" fill="#7c3aed"/>
+<text x="188" y="284.88" font-size="10" fill="#747987" text-anchor="end" font-weight="600">3.34</text>
+<line x1="204" y1="291.88" x2="204" y2="279.46" stroke="#7c3aed" stroke-width="1.4"/>
+<line x1="194" y1="279.46" x2="214" y2="279.46" stroke="#7c3aed" stroke-width="1.4"/>
+<text x="218" y="282.66" font-size="10" fill="#747987">4.03</text>
+<rect x="272" y="251.74" width="40" height="100.26" rx="3" fill="#b45309"/>
+<text x="276" y="244.74" font-size="10" fill="#747987" text-anchor="end" font-weight="600">5.57</text>
+<line x1="292" y1="251.74" x2="292" y2="143.38" stroke="#b45309" stroke-width="1.4"/>
+<line x1="282" y1="143.38" x2="302" y2="143.38" stroke="#b45309" stroke-width="1.4"/>
+<text x="306" y="146.58" font-size="10" fill="#747987">11.59</text>
+<rect x="360" y="316.36" width="40" height="35.64" rx="3" fill="#d97706"/>
+<text x="364" y="309.36" font-size="10" fill="#747987" text-anchor="end" font-weight="600">1.98</text>
+<line x1="380" y1="316.36" x2="380" y2="206.56" stroke="#d97706" stroke-width="1.4"/>
+<line x1="370" y1="206.56" x2="390" y2="206.56" stroke="#d97706" stroke-width="1.4"/>
+<text x="394" y="209.76" font-size="10" fill="#747987">8.08</text>
+<text x="452" y="92" font-size="12.5" fill="#747987" font-weight="650">Connection rate</text>
+<text x="452" y="110" font-size="10" fill="#747987">conn/s · bar = median · higher is better</text>
+<text x="484" y="127" font-size="10" fill="#747987" text-anchor="end" font-weight="500">conn/s</text>
+<line x1="492" y1="352" x2="844" y2="352" stroke="#7f8999" stroke-width="1"/>
+<text x="484" y="355.4" font-size="10" fill="#747987" text-anchor="end">0</text>
+<line x1="492" y1="308.8" x2="844" y2="308.8" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="484" y="312.2" font-size="10" fill="#747987" text-anchor="end">200</text>
+<line x1="492" y1="265.6" x2="844" y2="265.6" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="484" y="269" font-size="10" fill="#747987" text-anchor="end">400</text>
+<line x1="492" y1="222.4" x2="844" y2="222.4" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="484" y="225.8" font-size="10" fill="#747987" text-anchor="end">600</text>
+<line x1="492" y1="179.2" x2="844" y2="179.2" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="484" y="182.6" font-size="10" fill="#747987" text-anchor="end">800</text>
+<line x1="492" y1="136" x2="844" y2="136" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="484" y="139.4" font-size="10" fill="#747987" text-anchor="end">1000</text>
+<rect x="516" y="255.15" width="40" height="96.85" rx="3" fill="#0e7490"/>
+<text x="536" y="249.15" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">448</text>
+<rect x="604" y="230.44" width="40" height="121.56" rx="3" fill="#7c3aed"/>
+<text x="624" y="224.44" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">563</text>
+<rect x="692" y="292.43" width="40" height="59.57" rx="3" fill="#b45309"/>
+<text x="712" y="286.43" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">276</text>
+<rect x="780" y="149.33" width="40" height="202.67" rx="3" fill="#d97706"/>
+<text x="800" y="143.33" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">938</text>
+<text x="116" y="372" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">Xray</text>
+<text x="116" y="386" font-size="10" fill="#747987" text-anchor="middle">26.10.29</text>
+<text x="536" y="372" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">Xray</text>
+<text x="536" y="386" font-size="10" fill="#747987" text-anchor="middle">26.10.29</text>
+<text x="204" y="372" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">sing-box</text>
+<text x="204" y="386" font-size="10" fill="#747987" text-anchor="middle">1.14.4</text>
+<text x="624" y="372" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">sing-box</text>
+<text x="624" y="386" font-size="10" fill="#747987" text-anchor="middle">1.14.4</text>
+<text x="292" y="372" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">Unbihex</text>
+<text x="292" y="386" font-size="10" fill="#747987" text-anchor="middle">0.2.2 (stock)</text>
+<text x="712" y="372" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">Unbihex</text>
+<text x="712" y="386" font-size="10" fill="#747987" text-anchor="middle">0.2.2 (stock)</text>
+<text x="380" y="372" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">Unbihex</text>
+<text x="380" y="386" font-size="10" fill="#747987" text-anchor="middle">0.2.2 + PR #18</text>
+<text x="800" y="372" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">Unbihex</text>
+<text x="800" y="386" font-size="10" fill="#747987" text-anchor="middle">0.2.2 + PR #18</text>
+<text x="32" y="414" font-size="10" fill="#747987">Medians · loopback, 16 cores · netem on the tunnel port only</text>
+</svg>
