@@ -26,7 +26,7 @@ Exact numbers from the same runs:
 |---|---|---|---|---|---|---|---|
 | Xray 26.10.29 | 361 MB/s | 806 MB/s | 341 MB/s | 3.95 ms | 448 | 88.6 MB/s | 154 ms |
 | sing-box 1.14.4 | 540 MB/s | 1306 MB/s | 530 MB/s | 3.34 ms | 563 | 103.6 MB/s | 154 ms |
-| Unbihex 0.2.2 (stock) | 437 MB/s | 1011 MB/s | 386 MB/s | 5.57 ms | 276 | 5.9 MB/s | 156 ms |
+| Unbihex 0.2.2 (stock) | 437 MB/s | 1011 MB/s | 386 MB/s | 5.57 ms | 276 | 5.8 MB/s | 156 ms |
 | Unbihex 0.2.2 + [PR #18](https://github.com/crystalmasta/unbihex/pull/18) | 430 MB/s | 1163 MB/s | 411 MB/s | 1.98 ms | 938 | 85.8 MB/s | 152 ms |
 
 These are protocol-layer numbers on loopback: compare cells with each other, not with a real link
@@ -34,9 +34,9 @@ These are protocol-layer numbers on loopback: compare cells with each other, not
 and REALITY changes from [unbihex#18](https://github.com/crystalmasta/unbihex/pull/18); "stock"
 is the released 0.2.2.
 
-The charts and the table come from the same runs. Regenerate the images with
-`python3 charts/make_charts.py`; the values and the source `results/*.json` files are listed in
-[`charts/data.json`](charts/data.json).
+The charts and the table come from the same runs. `results/` is not committed, so the medians
+are duplicated in [`charts/data.json`](charts/data.json) with links to the source files;
+regenerate the images with `python3 charts/make_charts.py`.
 
 ## What is measured
 
@@ -151,13 +151,11 @@ dig @127.0.0.1 -p 15353 +tcp n000.dns.test AAAA
 
 `leak` is the negative control: with dnsd as the only upstream, a fresh name succeeds and dnsd's
 log counts the queries; after dnsd is stopped the same CONNECT must fail. If it still succeeds, the
-engine used the OS resolver or a cached answer and the DNS numbers are worthless.
+engine used the OS resolver or a cached answer and the DNS numbers are worthless. NODATA and
+NXDOMAIN answers carry the zone SOA in AUTHORITY (RFC 2308) so the engine can negative-cache them;
+`--no-soa` reproduces the old authority-less behaviour for an explicit comparison.
 
-**Unbihex limitation (0.2.2 and `dns/all` as of 2026-10-29):** outside TUN mode the engine uses the
-system resolver (`lib.rs`: `resolver = if tun_cfg.is_some() { upstream } else { system }`), so
-`dns.upstream` is ignored in this proxy-only stand and dnsd receives no queries. The DNS scenarios
-therefore report `received: false` for `unbihex_*`; measuring its DNS stack needs a TUN device
-(`/dev/net/tun`), which this stand does not have. No numbers are invented for it.
+**Unbihex:** it uses its own resolver only when DNS is configured (or a TUN is present); otherwise it uses the OS resolver, and the scenario refuses to report numbers in that case. The default template uses `dns.upstream`; pass `--dns-servers` for the newer `dns.servers` shape. Until the engine change lands (branch `dns/all`), a run exits with `dnsd received 0 queries ... measurement is invalid` rather than printing a fake number.
 
 ## Provenance
 

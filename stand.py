@@ -370,6 +370,12 @@ DNS_SERVER_TMPL = {
     "xraycl_ubisrv": ("unbihex-server-reality-dns.json.tmpl", "unbihex"),
     "ubicl_xraysrv": ("xray-server-reality-dns.json.tmpl", "xray"),
 }
+# The newer Unbihex config shape: dns.servers instead of dns.upstream. Old
+# builds reject the unknown field, so it is a separate template and opt-in.
+DNS_SERVER_TMPL_SERVERS = {
+    "unbihex_reality": ("unbihex-server-reality-dns-servers.json.tmpl", "unbihex-servers"),
+    "xraycl_ubisrv": ("unbihex-server-reality-dns-servers.json.tmpl", "unbihex-servers"),
+}
 
 
 def read_env(path):
@@ -394,9 +400,12 @@ def render(src, dst, vals):
     Path(dst).write_text(re.sub(r"@([A-Z0-9_]+)@", sub, text))
 
 
-def dns_config(scenario, upstreams):
+def dns_config(scenario, upstreams, dns_servers=False):
     """Render the scenario's server config with dnsd as its only resolver."""
-    tmpl, family = DNS_SERVER_TMPL[scenario]
+    table = DNS_SERVER_TMPL
+    if dns_servers and scenario in DNS_SERVER_TMPL_SERVERS:
+        table = DNS_SERVER_TMPL_SERVERS
+    tmpl, family = table[scenario]
     vals = dict(VERSIONS)
     vals.update(read_env(ROOT / ".state/keys.env"))
     if "PRIVATE_KEY" not in vals:
@@ -417,6 +426,12 @@ def dns_config(scenario, upstreams):
             for i, h in enumerate(hosts)
         )
         vals["DNS_FIRST"] = "dnsd0"
+    elif family == "unbihex-servers":
+        vals["DNS_SERVERS"] = ", ".join(
+            '{"address":"%s","port":%s,"domains":["dns.test"]}'
+            % (h.rsplit(":", 1)[0], h.rsplit(":", 1)[1])
+            for h in hosts
+        )
     else:
         vals["DNS_UPSTREAMS"] = ", ".join(f'"{h}"' for h in hosts)
     out = ROOT / "configs" / tmpl.replace(".tmpl", "")
@@ -617,7 +632,7 @@ def save_dns_result(scenario, sub, n, label, rtt, dnsd_info, extra):
     return path
 
 
-def dns_run(scenario, sub, n, delay_ms, label, rtt, timeout):
+def dns_run(scenario, sub, n, delay_ms, label, rtt, timeout, dns_servers=False):
     if scenario not in SCENARIOS:
         sys.exit(f"unknown scenario {scenario}; known: {', '.join(SCENARIOS)}")
     if scenario not in DNS_SERVER_TMPL:
@@ -641,10 +656,30 @@ def dns_run(scenario, sub, n, delay_ms, label, rtt, timeout):
             dnsd = [start_dnsd("live", DNS_BASE_PORT, delay_ms)]
             upstreams = [("127.0.0.1", DNS_BASE_PORT)]
         clean.extend(dnsd)
-        cfg = dns_config(scenario, upstreams)
+        cfg = dns_config(scenario, upstreams, dns_servers)
         dns_up(scenario, cfg)
         port = socks_port(scenario)
         log = dnsd[0]["log"]
+        is_unbihex = (DNS_SERVER_TMPL_SERVERS if (dns_servers and scenario in
+                      DNS_SERVER_TMPL_SERVERS) else DNS_SERVER_TMPL)[scenario][1] \
+            .startswith("unbihex")
+
+        def require_dns_traffic():
+            """Old Unbihex ignores dns.upstream without a TUN: refuse, do not fake."""
+            if not is_unbihex:
+                return
+            if sum(sum(log_queries(d["log"]).values()) for d in dnsd) > 0:
+                return
+            stop(scenario)
+            shape = "dns.servers" if dns_servers else "dns.upstream"
+            sys.exit(
+                f"dns {scenario} {sub}: dnsd received 0 queries even though "
+                f"{shape} points at it. This Unbihex build used the system "
+                f"resolver (its own DNS resolver is only used with an explicit "
+                f"dns.servers/dns.upstream or a TUN), so the measurement is "
+                f"invalid and is not reported. See the DNS section of README.md."
+            )
+
         # Like measure(): the first connection(s) through a fresh engine include
         # startup noise. Warm up on a name the measurements do not count.
         if sub != "warm":
@@ -653,6 +688,7 @@ def dns_run(scenario, sub, n, delay_ms, label, rtt, timeout):
                     socks_probe(port, "n198.dns.test", timeout)
                 except Exception:
                     pass
+            require_dns_traffic()
 
         if sub == "cold":
             names = [f"n{i % 200:03d}.dns.test" for i in range(max(1, n))]
@@ -683,7 +719,11 @@ def dns_run(scenario, sub, n, delay_ms, label, rtt, timeout):
         if sub == "warm":
             names = [f"n{i % 200:03d}.dns.test" for i in range(max(1, n))]
             for name in names:  # prime the engine's cache
-                socks_probe(port, name, timeout)
+                try:
+                    socks_probe(port, name, timeout)
+                except Exception:
+                    pass
+                require_dns_traffic()
             offset = log_offset(log)
             per = []
             for name in names:
@@ -1070,6 +1110,8 @@ def main():
     p.add_argument("--rtt", type=int, default=0)
     p.add_argument("--timeout", type=float, default=30.0)
     p.add_argument("--label", default="")
+    p.add_argument("--dns-servers", action="store_true",
+                   help="Unbihex: use the dns.servers config shape instead of dns.upstream")
     p = sub.add_parser("versions"); p.add_argument("--update", action="store_true")
     p = sub.add_parser("table"); p.add_argument("pattern", nargs="?", default="*.json")
     p = sub.add_parser("bench")
@@ -1103,7 +1145,7 @@ def main():
         check(args.scenario)
     elif args.cmd == "dns":
         dns_run(args.scenario, args.subcommand, args.n, args.delay_ms,
-                args.label, args.rtt, args.timeout)
+                args.label, args.rtt, args.timeout, args.dns_servers)
     elif args.cmd == "versions":
         sys.exit(versions(args.update))
     elif args.cmd == "table":

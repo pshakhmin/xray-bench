@@ -110,6 +110,8 @@ PORT=$SINGBOX_REALITY_PORT DNS_SERVERS="$DNS_SERVERS_SINGBOX" DNS_FIRST=dnsd0 \
   render configs/singbox-server-reality-dns.json.tmpl configs/singbox-server-reality-dns.json
 PORT=$UNBIHEX_REALITY_PORT DNS_UPSTREAMS='"127.0.0.1:15353"' \
   render configs/unbihex-server-reality-dns.json.tmpl configs/unbihex-server-reality-dns.json
+PORT=$UNBIHEX_REALITY_PORT DNS_SERVERS='{"address":"127.0.0.1","port":15353,"domains":["dns.test"]}' \
+  render configs/unbihex-server-reality-dns-servers.json.tmpl configs/unbihex-server-reality-dns-servers.json
 
 # Every generated config must be valid; a broken stand fails here, not mid-measurement.
 cache/xray/xray run -test -c configs/xray-server-reality.json       >/dev/null 2>&1 || die "xray-server-reality.json is invalid"

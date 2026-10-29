@@ -22,6 +22,7 @@ Modes:
   --stats [FILE] counts per name/qtype, dumped on SIGTERM (and SIGINT);
                  omitted value means stderr. With --log the dump also goes to
                  <log>.stats.json when no explicit FILE is given.
+  --no-soa       omit the SOA in AUTHORITY for NODATA/NXDOMAIN (old behaviour)
 """
 import argparse
 import ipaddress
@@ -124,6 +125,19 @@ def rr(name_ptr, rtype, ttl, rdata):
     return name_ptr + struct.pack("!HHIH", rtype, 1, ttl, len(rdata)) + rdata
 
 
+# RFC 2308 negative caching: NODATA and NXDOMAIN carry the zone's SOA in
+# AUTHORITY, and a resolver takes the negative TTL from SOA.MINIMUM.
+SOA_OWNER = enc_name("dns.test.")
+SOA_MNAME = enc_name("ns.dns.test.")
+SOA_RNAME = enc_name("hostmaster.dns.test.")
+
+
+def soa_rr(ttl=60, serial=1, refresh=60, retry=60, expire=60, minimum=60):
+    rdata = SOA_MNAME + SOA_RNAME + struct.pack("!IIIII", serial, refresh, retry,
+                                                expire, minimum)
+    return rr(SOA_OWNER, 6, ttl, rdata)
+
+
 class Zone:
     def __init__(self, path):
         raw = json.load(open(path))
@@ -203,12 +217,17 @@ class Server:
             rcode, answers = self.zone.answer(qname, qtype)
         # QR, copy opcode+RD, AA, RA
         out_flags = 0x8000 | (flags & 0x7900) | 0x0400 | 0x0080 | rcode
-        header = struct.pack("!HHHHHH", qid, out_flags, 1, len(answers), 0, 0)
+        authority = []
+        if rcode in (0, 3) and not answers and not self.args.no_soa:
+            authority.append(soa_rr(self.zone.ttl))
+        header = struct.pack("!HHHHHH", qid, out_flags, 1, len(answers),
+                             len(authority), 0)
         body = bytearray(header)
         body += question
         name_ptr = b"\xc0\x0c"
         for rtype, rdata in answers:
             body += rr(name_ptr, rtype, self.zone.ttl, rdata)
+        body += b"".join(authority)
         return bytes(body)
 
     def maybe_delay(self):
@@ -304,6 +323,8 @@ def main():
     ap.add_argument("--delay-ms", type=int, default=0)
     ap.add_argument("--fail", action="store_true", help="never answer")
     ap.add_argument("--refuse", action="store_true", help="answer REFUSED")
+    ap.add_argument("--no-soa", action="store_true",
+                    help="omit the SOA in AUTHORITY for NODATA/NXDOMAIN")
     ap.add_argument("--log", help="JSONL of received queries")
     ap.add_argument("--stats", nargs="?", const=True, default=None,
                     help="dump name/qtype counts on SIGTERM (default: <log>.stats.json)")
