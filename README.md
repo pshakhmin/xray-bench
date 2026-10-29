@@ -1,4 +1,4 @@
-# proxy-bench
+# xray-bench
 
 Воспроизводимый стенд для сравнения трёх прокси-движков — **Xray-core**, **sing-box** и
 **Unbihex** — по схеме «SOCKS-инбаунд → REALITY/XHTTP → сервер → приёмник»: эмуляция RTT,
