@@ -439,7 +439,7 @@ def dns_config(scenario, upstreams, dns_servers=False):
     return out
 
 
-def start_dnsd(tag, port, delay_ms=0, fail=False, refuse=False):
+def start_dnsd(tag, port, delay_ms=0, fail=False, refuse=False, no_soa=False):
     stop_dnsd(tag)
     if sh(f"ss -lnt | grep -q ':{port} '").returncode == 0:
         sys.exit(f"dnsd ({tag}): port {port} is already in use by another process; "
@@ -456,6 +456,8 @@ def start_dnsd(tag, port, delay_ms=0, fail=False, refuse=False):
         cmd.append("--fail")
     if refuse:
         cmd.append("--refuse")
+    if no_soa:
+        cmd.append("--no-soa")
     out = open(ROOT / "logs" / f"dnsd-{tag}.log", "w")
     p = subprocess.Popen(cmd, cwd=ROOT, stdout=out, stderr=out, stdin=subprocess.DEVNULL,
                          start_new_session=True)
@@ -632,7 +634,8 @@ def save_dns_result(scenario, sub, n, label, rtt, dnsd_info, extra):
     return path
 
 
-def dns_run(scenario, sub, n, delay_ms, label, rtt, timeout, dns_servers=False):
+def dns_run(scenario, sub, n, delay_ms, label, rtt, timeout, dns_servers=False,
+            no_soa=False):
     if scenario not in SCENARIOS:
         sys.exit(f"unknown scenario {scenario}; known: {', '.join(SCENARIOS)}")
     if scenario not in DNS_SERVER_TMPL:
@@ -649,11 +652,11 @@ def dns_run(scenario, sub, n, delay_ms, label, rtt, timeout, dns_servers=False):
     clean = []
     try:
         if sub == "dead":
-            dnsd = [start_dnsd("dead", DNS_BASE_PORT, delay_ms, fail=True),
-                    start_dnsd("live", DNS_DEAD_PORT)]
+            dnsd = [start_dnsd("dead", DNS_BASE_PORT, delay_ms, fail=True, no_soa=no_soa),
+                    start_dnsd("live", DNS_DEAD_PORT, no_soa=no_soa)]
             upstreams = [("127.0.0.1", DNS_BASE_PORT), ("127.0.0.1", DNS_DEAD_PORT)]
         else:
-            dnsd = [start_dnsd("live", DNS_BASE_PORT, delay_ms)]
+            dnsd = [start_dnsd("live", DNS_BASE_PORT, delay_ms, no_soa=no_soa)]
             upstreams = [("127.0.0.1", DNS_BASE_PORT)]
         clean.extend(dnsd)
         cfg = dns_config(scenario, upstreams, dns_servers)
@@ -1112,6 +1115,8 @@ def main():
     p.add_argument("--label", default="")
     p.add_argument("--dns-servers", action="store_true",
                    help="Unbihex: use the dns.servers config shape instead of dns.upstream")
+    p.add_argument("--no-soa", action="store_true",
+                   help="dnsd: omit the SOA in AUTHORITY for NODATA/NXDOMAIN")
     p = sub.add_parser("versions"); p.add_argument("--update", action="store_true")
     p = sub.add_parser("table"); p.add_argument("pattern", nargs="?", default="*.json")
     p = sub.add_parser("bench")
@@ -1145,7 +1150,7 @@ def main():
         check(args.scenario)
     elif args.cmd == "dns":
         dns_run(args.scenario, args.subcommand, args.n, args.delay_ms,
-                args.label, args.rtt, args.timeout, args.dns_servers)
+                args.label, args.rtt, args.timeout, args.dns_servers, args.no_soa)
     elif args.cmd == "versions":
         sys.exit(versions(args.update))
     elif args.cmd == "table":

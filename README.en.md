@@ -138,7 +138,8 @@ Unbihex `dns.upstream` — and exchange one SOCKS CONNECT + sink ping per name:
 ./stand.py report
 ```
 
-Options: `--delay-ms N` makes dnsd answer slowly, `--rtt N` adds netem, `--label TEXT`. Each result
+Options: `--delay-ms N` makes dnsd answer slowly, `--rtt N` adds netem, `--label TEXT`.
+`--no-soa` runs dnsd without the negative-answer SOA, so the cache difference can be measured. Each result
 records the engine and binary hashes, git commit, dnsd mode/delay, query counts per name and qtype,
 latency median/p95 and whether dnsd saw any traffic. `--fail` is the black hole; `--refuse` answers
 REFUSED. A quick wire check of dnsd itself:
