@@ -140,9 +140,21 @@ def wait_port(port, timeout=20.0):
     return False
 
 
+def infra_up():
+    """dest and the sink are started by setup.sh; a scenario without them fails obscurely."""
+    dest = VERSIONS["DEST_PORT"]
+    sink = f"{VERSIONS['SINK_IP']}:{VERSIONS['SINK_PORT']}"
+    ok = sh(f"ss -lnt | grep -q ':{dest} '").returncode == 0
+    ok = ok and sh(f"ss -lnt | grep -q '{sink}'").returncode == 0
+    return ok
+
+
 def up(scenario):
     if scenario not in SCENARIOS:
         sys.exit(f"unknown scenario {scenario}; known: {', '.join(SCENARIOS)}")
+    if not infra_up():
+        say("dest or sink is not running; calling setup.sh")
+        subprocess.run([str(ROOT / "setup.sh")], cwd=ROOT, check=True)
     stop_all()
     for proc in SCENARIOS[scenario]["start"]:
         cmd = [str(bin_path(proc["bin"]))] + proc["args"]
