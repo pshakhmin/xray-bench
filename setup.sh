@@ -29,13 +29,23 @@ fetch() { # url sha256 out
   echo "$sha  $out" | sha256sum -c --quiet - || die "checksum mismatch: $out"
 }
 
-if [ ! -x cache/xray/xray ]; then
+# A cached binary is only accepted when its version output still matches the pin;
+# this makes a bumped pin re-download instead of silently keeping the old build.
+bin_matches() { # path needle cmd...
+  local path=$1 needle=$2; shift 2
+  [ -x "$path" ] || return 1
+  "$path" "$@" 2>&1 | grep -qF -- "$needle"
+}
+
+if ! bin_matches cache/xray/xray "${XRAY_VERSION#v}" version; then
+  rm -rf cache/xray cache/xray.zip
   fetch "$XRAY_URL" "$XRAY_SHA256" cache/xray.zip
   mkdir -p cache/xray
   python3 -c "import zipfile; zipfile.ZipFile('cache/xray.zip').extractall('cache/xray')"
   chmod +x cache/xray/xray
 fi
-if [ ! -x cache/sing-box/sing-box ]; then
+if ! bin_matches cache/sing-box/sing-box "$SINGBOX_VERSION" version; then
+  rm -rf cache/sing-box cache/sing-box.tar.gz
   fetch "$SINGBOX_URL" "$SINGBOX_SHA256" cache/sing-box.tar.gz
   tar xzf cache/sing-box.tar.gz -C cache
   mv "cache/sing-box-${SINGBOX_VERSION}-linux-amd64" cache/sing-box
@@ -86,6 +96,7 @@ PORT=$XRAY_REALITY_PORT      render configs/xray-server-reality.json.tmpl       
 PORT=$UNBIHEX_REALITY_PORT   render configs/unbihex-server-reality.json.tmpl    configs/unbihex-server-reality.json
 PORT=$XRAY_XHTTP_PORT        render configs/xray-server-xhttp-reality.json.tmpl configs/xray-server-xhttp-reality.json
 PORT=$SINGBOX_REALITY_PORT   render configs/singbox-server-reality.json.tmpl    configs/singbox-server-reality.json
+PORT=$UNBIHEX_RELEASE_REALITY_PORT render configs/unbihex-testserver-reality.json.tmpl configs/unbihex-testserver-reality.json
 
 SERVER_PORT=$XRAY_REALITY_PORT SOCKS_PORT=$XRAY_SOCKS \
   render configs/xray-client-reality.json.tmpl configs/xray-client-reality.json
@@ -145,7 +156,9 @@ start_bg dest openssl s_server -accept "127.0.0.1:$DEST_PORT" \
   -cert .state/certs/cert.pem -key .state/certs/key.pem -tls1_3 -alpn h2,http/1.1 -www -quiet
 start_bg sink ./bench/target/release/bench sink --listen "$SINK_IP:$SINK_PORT"
 
-# ---------------------------------------------------------------- optional unbihex build
+# ---------------------------------------------------------------- unbihex source build or release binaries
+# Set UNBIHEX_REPO to build from a checkout (e.g. the PR #18 branch, which has no
+# release); otherwise install the pinned upstream release binaries.
 if [ -n "${UNBIHEX_REPO:-}" ]; then
   command -v cargo >/dev/null || die "cargo is required to build unbihex"
   say "building unbihex from $UNBIHEX_REPO"
@@ -156,19 +169,56 @@ UNBIHEX_REPO=$UNBIHEX_REPO
 UNBIHEX_SERVER=$UNBIHEX_REPO/unbihex-server/target/release/unbihex
 UNBIHEX_CLI=$UNBIHEX_REPO/unbihex-client/target/release/unbihex-cli
 EOF
-  . .state/bins.env
-  if ! "$UNBIHEX_CLI" --dir .state/ubcli list 2>/dev/null | grep -q "xray-reality"; then
-    "$UNBIHEX_CLI" --dir .state/ubcli add \
-      "vless://$UUID@127.0.0.1:$XRAY_REALITY_PORT?security=reality&sni=$SNI&pbk=$PUBLIC_KEY&sid=$SHORT_ID&fp=chrome&type=tcp#xray-reality" >/dev/null
+else
+  say "installing unbihex release $UNBIHEX_VERSION"
+  if ! bin_matches cache/unbihex-cli/unbihex-cli "${UNBIHEX_VERSION#v}" version; then
+    rm -rf cache/unbihex-cli "cache/$UNBIHEX_CLI_TGZ"
+    fetch "$UNBIHEX_CLI_URL" "$UNBIHEX_CLI_SHA256" "cache/$UNBIHEX_CLI_TGZ"
+    mkdir -p cache/unbihex-cli
+    tar xzf "cache/$UNBIHEX_CLI_TGZ" -C cache/unbihex-cli --strip-components=1
+    chmod +x cache/unbihex-cli/unbihex-cli
   fi
-  "$UNBIHEX_CLI" --dir .state/ubcli select 1 >/dev/null
-  if ! "$UNBIHEX_CLI" --dir .state/ubcli-ubi list 2>/dev/null | grep -q "unbihex-reality"; then
-    "$UNBIHEX_CLI" --dir .state/ubcli-ubi add \
-      "vless://$UUID@127.0.0.1:$UNBIHEX_REALITY_PORT?security=reality&sni=$SNI&pbk=$PUBLIC_KEY&sid=$SHORT_ID&fp=chrome&type=tcp#unbihex-reality" >/dev/null
+  if ! bin_matches cache/unbihex-server/test_server "$UNBIHEX_SERVER_ASSET_VERSION" version; then
+    rm -rf cache/unbihex-server "cache/$UNBIHEX_SERVER_TGZ"
+    fetch "$UNBIHEX_SERVER_URL" "$UNBIHEX_SERVER_SHA256" "cache/$UNBIHEX_SERVER_TGZ"
+    mkdir -p cache/unbihex-server
+    tar xzf "cache/$UNBIHEX_SERVER_TGZ" -C cache/unbihex-server --strip-components=1
+    chmod +x cache/unbihex-server/test_server
   fi
-  "$UNBIHEX_CLI" --dir .state/ubcli-ubi select 1 >/dev/null
+  cache/unbihex-cli/unbihex-cli version | head -1
+  cache/unbihex-server/test_server version | head -1
+  cache/unbihex-server/test_server check -c configs/unbihex-testserver-reality.json \
+    || die "unbihex-testserver-reality.json is invalid"
+  cat > .state/bins.env <<EOF
+UNBIHEX_SERVER_RELEASE=$HERE/cache/unbihex-server/test_server
+UNBIHEX_CLI_RELEASE=$HERE/cache/unbihex-cli/unbihex-cli
+EOF
 fi
 [ -f .state/bins.env ] || : > .state/bins.env
+. .state/bins.env
+
+# The release client is used for every config dir when present; the source
+# build otherwise. This keeps unbihex_reality/source scenarios on UNBIHEX_*.
+UB_CLI="${UNBIHEX_CLI_RELEASE:-${UNBIHEX_CLI:-}}"
+[ -n "$UB_CLI" ] || die "no unbihex CLI in .state/bins.env"
+
+if ! "$UB_CLI" --dir .state/ubcli list 2>/dev/null | grep -q "xray-reality"; then
+  "$UB_CLI" --dir .state/ubcli add \
+    "vless://$UUID@127.0.0.1:$XRAY_REALITY_PORT?security=reality&sni=$SNI&pbk=$PUBLIC_KEY&sid=$SHORT_ID&fp=chrome&type=tcp#xray-reality" >/dev/null
+fi
+"$UB_CLI" --dir .state/ubcli select 1 >/dev/null
+if ! "$UB_CLI" --dir .state/ubcli-ubi list 2>/dev/null | grep -q "unbihex-reality"; then
+  "$UB_CLI" --dir .state/ubcli-ubi add \
+    "vless://$UUID@127.0.0.1:$UNBIHEX_REALITY_PORT?security=reality&sni=$SNI&pbk=$PUBLIC_KEY&sid=$SHORT_ID&fp=chrome&type=tcp#unbihex-reality" >/dev/null
+fi
+"$UB_CLI" --dir .state/ubcli-ubi select 1 >/dev/null
+if [ -n "${UNBIHEX_CLI_RELEASE:-}" ]; then
+  if ! "$UNBIHEX_CLI_RELEASE" --dir .state/ubcli-rel list 2>/dev/null | grep -q "unbihex-release"; then
+    "$UNBIHEX_CLI_RELEASE" --dir .state/ubcli-rel add \
+      "vless://$UUID@127.0.0.1:$UNBIHEX_RELEASE_REALITY_PORT?security=reality&sni=$SNI&pbk=$PUBLIC_KEY&sid=$SHORT_ID&fp=chrome&type=tcp#unbihex-release" >/dev/null
+  fi
+  "$UNBIHEX_CLI_RELEASE" --dir .state/ubcli-rel select 1 >/dev/null
+fi
 
 # ---------------------------------------------------------------- self-check
 sleep 1

@@ -1,0 +1,146 @@
+name: bench
+
+# Weekly: bump the pinned upstream releases, run the stand on a GitHub runner,
+# commit the raw results, publish the dashboard to GitHub Pages.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: bench-pages
+  cancel-in-progress: false
+
+jobs:
+  pins:
+    # Bump versions.env to the latest Xray / sing-box / Unbihex releases and
+    # verify every new asset by sha256 before the bench runs on it.
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Check upstream pins
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/pins.py --check
+
+      - name: Update pins
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/pins.py --update
+
+      - name: Commit changed pins
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- versions.env; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "pins are current"
+          else
+            git add versions.env
+            git commit -m "pins: latest upstream releases"
+            git push origin HEAD:master
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  bench:
+    runs-on: ubuntu-latest
+    needs: pins
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq iproute2 curl openssl
+
+      # netem on lo needs CAP_NET_ADMIN and sch_netem; if the runner lacks
+      # either, the RTT 50 ms cells are skipped instead of faked.
+      - name: Probe netem
+        id: netem
+        run: |
+          if sudo tc qdisc add dev lo root handle 1: prio bands 4 \
+               priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 &&
+             sudo tc qdisc add dev lo parent 1:2 handle 20: netem delay 1ms limit 20000; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::netem unavailable on this runner; running RTT~=0 only"
+          fi
+          sudo tc qdisc del dev lo root 2>/dev/null || true
+
+      - name: Setup stand
+        run: sudo -E env "PATH=$PATH" "HOME=$HOME" ./setup.sh
+
+      - name: Bench, RTT~=0
+        run: |
+          sudo -E env "PATH=$PATH" "HOME=$HOME" \
+            python3 stand.py bench \
+              --scenarios xray_reality,singbox_reality,unbihex_release \
+              --rtt 0 --runs 2
+
+      - name: Bench, RTT 50 ms
+        if: steps.netem.outputs.ok == 'true'
+        run: |
+          sudo -E env "PATH=$PATH" "HOME=$HOME" \
+            python3 stand.py bench \
+              --scenarios xray_reality,singbox_reality,unbihex_release \
+              --rtt 50 --quick --runs 2 --no-control
+
+      - name: Keep the raw results
+        run: |
+          mkdir -p ci-results
+          cp results/*.json ci-results/
+          # keep the newest 30 result files; older weekly runs are not worth the size
+          ls -t ci-results/*.json | tail -n +31 | xargs -r rm -f
+          ls -1t ci-results | head -3
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ci-results
+          if git diff --cached --quiet; then
+            echo "no new results"
+          else
+            git commit -m "ci: bench run $(date -u +%Y-%m-%d)"
+            git push origin HEAD:master
+          fi
+
+      - name: Build dashboard
+        run: python3 site/build.py
+
+      - name: Upload results artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-results
+          path: ci-results/*.json
+          if-no-files-found: error
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+      - name: Deploy to Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

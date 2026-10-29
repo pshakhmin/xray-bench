@@ -162,5 +162,35 @@
         ]
       }
     ]
+  },
+  "unbihex_release": {
+    "ports": [
+      18473
+    ],
+    "socks": 10808,
+    "start": [
+      {
+        "name": "server",
+        "bin": "unbihex-server-release",
+        "args": [
+          "run",
+          "-c",
+          "configs/unbihex-testserver-reality.json"
+        ]
+      },
+      {
+        "name": "client",
+        "bin": "unbihex-cli-release",
+        "args": [
+          "--dir",
+          ".state/ubcli-rel",
+          "connect",
+          "--mode",
+          "proxy",
+          "--routing",
+          "global"
+        ]
+      }
+    ]
   }
 }

@@ -2,6 +2,8 @@
 
 **Русский** · [English](README.en.md)
 
+[![bench](https://github.com/pshakhmin/xray-bench/actions/workflows/bench.yml/badge.svg)](https://github.com/pshakhmin/xray-bench/actions/workflows/bench.yml)
+
 Воспроизводимый стенд для сравнения трёх прокси-движков — **Xray-core**, **sing-box** и
 **Unbihex** — по схеме «SOCKS-инбаунд → REALITY/XHTTP → сервер → приёмник»: эмуляция RTT,
 замеры throughput, TTFB, темпа соединений и CPU, провенанс в каждом результате.
@@ -38,6 +40,11 @@ loopback, 16 ядер, RTT через `netem` только на порту ту�
 поэтому медианы продублированы в [`charts/data.json`](charts/data.json) вместе со ссылками на
 исходные файлы; пересобрать картинки — `python3 charts/make_charts.py`.
 
+Строка Unbihex в таблице — про **сборку движка** (engine 0.1.1: stock 0.2.2 против ветки PR #18).
+С 0.2.3 релиз Unbihex — это `unbihex-cli` плюс отдельный `test_server` со своим форматом конфига;
+стенд ставит их по умолчанию и меряет сценарием `unbihex_release`, поэтому его цифры с этой
+таблицей напрямую не сравнивайте.
+
 ## Что измеряется
 
 | Метрика | Как |
@@ -68,13 +75,13 @@ loopback, 16 ядер, RTT через `netem` только на порту ту�
 
 - Linux, root (нужны `tc`, алиас на `lo`).
 - `curl`, `tar`, `openssl`, `python3`, `ip`, `ss`, `tc`.
-- `cargo` — если собирать Unbihex из исходников (`UNBIHEX_REPO=...`).
+- `cargo` — для сборки харнесса `bench/`; и для Unbihex из исходников (`UNBIHEX_REPO=...`).
 - Для TUN-режима нужен `/dev/net/tun`; этот стенд его не использует и не проверяет.
 
 ## Быстрый старт
 
 ```bash
-UNBIHEX_REPO=/path/to/unbihex ./setup.sh   # скачивает Xray/sing-box по пинам, генерит ключи,
+./setup.sh                                 # качает релизные бинари по пинам, генерит ключи,
                                            # рендерит конфиги, поднимает dest и sink
 ./stand.py up xray_reality
 ./stand.py run xray_reality 0              # RTT≈0; 50 — эмуляция 50 мс
@@ -86,10 +93,27 @@ UNBIHEX_REPO=/path/to/unbihex ./setup.sh   # скачивает Xray/sing-box п
 `setup.sh` идемпотентен: повторный запуск ничего не перекачивает и не перегенерирует.
 Бинарники качаются по версиям и sha256 из [`versions.env`](versions.env).
 
+Движки ставятся готовыми релизами: Xray и sing-box — официальные архивы, Unbihex — `unbihex-cli`
+и `test_server`. Собрать Unbihex из исходников (например, ветку PR #18, у которой нет релиза):
+`UNBIHEX_REPO=/path/to/unbihex ./setup.sh`.
+
+## CI и Pages
+
+Раз в неделю [`.github/workflows/bench.yml`](.github/workflows/bench.yml) обновляет пины
+(`tools/pins.py --update`, каждый новый ассет проверяется по sha256), прогоняет стенд на раннере
+GitHub и публикует дашборд: **<https://pshakhmin.github.io/xray-bench/>**. Сырые результаты
+последних прогонов коммитятся в [`ci-results/`](ci-results).
+
+- Раннер — 4 vCPU против 16 ядер в таблице выше: CI-цифры сравнимы только внутри одного прогона.
+- Если `netem` на раннере недоступен, RTT 50 мс не меряется, и страница этих клеток не показывает.
+- Ручной запуск: Actions → **bench** → *Run workflow*. Больше ничего держать включённым не надо:
+  setup, прогон, коммит результатов и деплой делает один workflow.
+
 ## Сценарии
 
 Список — в [`lib/scenarios.json`](lib/scenarios.json). Сейчас: `xray_reality`, `xray_xhttp`,
-`singbox_reality`, `unbihex_reality`, `xraycl_ubisrv`, `ubicl_xraysrv`.
+`singbox_reality`, `unbihex_release` (релизные бинари), `unbihex_reality` (сборка из исходников,
+нужен `UNBIHEX_REPO`), `xraycl_ubisrv`, `ubicl_xraysrv`.
 
 Добавить свой: дописать запись в `scenarios.json` (`ports`, `socks`, `start` — команда и
 аргументы) и, если нужен новый конфиг, шаблон в `configs/` с `@ПЕРЕМЕННЫМИ@` (их
@@ -112,7 +136,8 @@ UNBIHEX_SERVER=/path/to/old/unbihex ./stand.py up xraycl_ubisrv
 ```
 
 `bins.env` (`.state/bins.env`, создаётся `setup.sh`) можно переопределить переменными окружения
-`UNBIHEX_SERVER` / `UNBIHEX_CLI`.
+`UNBIHEX_SERVER` / `UNBIHEX_CLI`. Сценарии `unbihex_reality`, `xraycl_ubisrv` и `ubicl_xraysrv`
+работают со сборкой из исходников: сначала `UNBIHEX_REPO=/path/to/unbihex ./setup.sh`.
 
 ## Негативный контроль
 

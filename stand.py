@@ -70,6 +70,8 @@ BINS = {
     "singbox": ROOT / "cache/sing-box/sing-box",
     "unbihex-server": lambda: env("UNBIHEX_SERVER", ""),
     "unbihex-cli": lambda: env("UNBIHEX_CLI", ""),
+    "unbihex-server-release": lambda: env("UNBIHEX_SERVER_RELEASE", ""),
+    "unbihex-cli-release": lambda: env("UNBIHEX_CLI_RELEASE", ""),
 }
 
 
@@ -250,14 +252,19 @@ def provenance(scenario, rtt):
         "scenario_procs": pids,
         "inputs": {},
     }
-    for name in ("xray", "singbox", "unbihex-server", "unbihex-cli"):
+    for name, key in (("xray", "xray"), ("singbox", "singbox"),
+                      ("unbihex-server", "unbihex-server"), ("unbihex-cli", "unbihex-cli"),
+                      # release installs expose the same engines under separate keys;
+                      # record them under the canonical name so provenance is uniform
+                      ("unbihex-server-release", "unbihex-server"),
+                      ("unbihex-cli-release", "unbihex-cli")):
         try:
             p = bin_path(name)
             entry = {"path": str(p), "sha256": sha256(p), "version": version_of(p)}
             repo = repo_of(p)
             if repo:
                 entry["git"] = git_info(repo)
-            info["inputs"][name] = entry
+            info["inputs"][key] = entry
         except SystemExit:
             pass
     repo = Path(env("UNBIHEX_REPO", "")) if env("UNBIHEX_REPO") else None

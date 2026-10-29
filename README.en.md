@@ -2,6 +2,8 @@
 
 **English** · [Русский](README.md)
 
+[![bench](https://github.com/pshakhmin/xray-bench/actions/workflows/bench.yml/badge.svg)](https://github.com/pshakhmin/xray-bench/actions/workflows/bench.yml)
+
 A reproducible bench for comparing three proxy engines — **Xray-core**, **sing-box** and
 **Unbihex** — along the path "SOCKS inbound → REALITY/XHTTP → server → sink": emulated RTT,
 throughput, TTFB, connection rate and CPU, with provenance recorded in every result.
@@ -38,6 +40,11 @@ The charts and the table come from the same runs. `results/` is not committed, s
 are duplicated in [`charts/data.json`](charts/data.json) with links to the source files;
 regenerate the images with `python3 charts/make_charts.py`.
 
+The Unbihex row is about the **engine build** (engine 0.1.1: stock 0.2.2 versus the PR #18 branch).
+Since 0.2.3 the Unbihex release is `unbihex-cli` plus a separate `test_server` with its own config
+schema; the stand installs those by default and measures them as `unbihex_release`, so do not compare
+its numbers with this table directly.
+
 ## What is measured
 
 | Metric | How |
@@ -68,13 +75,13 @@ engine).
 
 - Linux, root (needs `tc` and an alias on `lo`).
 - `curl`, `tar`, `openssl`, `python3`, `ip`, `ss`, `tc`.
-- `cargo` — to build Unbihex from source (`UNBIHEX_REPO=...`).
+- `cargo` — to build the `bench/` harness; and for Unbihex from source (`UNBIHEX_REPO=...`).
 - TUN mode needs `/dev/net/tun`; this bench does not use or test it.
 
 ## Quick start
 
 ```bash
-UNBIHEX_REPO=/path/to/unbihex ./setup.sh   # pinned Xray/sing-box, keys, configs, dest and sink
+./setup.sh                                 # release binaries by pin, keys, configs, dest and sink
 ./stand.py up xray_reality
 ./stand.py run xray_reality 0              # RTT≈0; 50 emulates 50 ms
 ./stand.py run xray_reality 50 --quick
@@ -85,10 +92,28 @@ UNBIHEX_REPO=/path/to/unbihex ./setup.sh   # pinned Xray/sing-box, keys, configs
 `setup.sh` is idempotent: a second run downloads and regenerates nothing. Binaries are pinned by
 version and sha256 in [`versions.env`](versions.env).
 
+Engines come as release binaries: Xray and sing-box from their official archives, Unbihex as
+`unbihex-cli` plus `test_server`. To build Unbihex from source (e.g. the PR #18 branch, which has no
+release): `UNBIHEX_REPO=/path/to/unbihex ./setup.sh`.
+
+## CI and Pages
+
+Once a week [`.github/workflows/bench.yml`](.github/workflows/bench.yml) updates the pins
+(`tools/pins.py --update`, every new asset verified by sha256), runs the stand on a GitHub runner and
+publishes the dashboard: **<https://pshakhmin.github.io/xray-bench/>**. Raw results of the last runs
+are committed to [`ci-results/`](ci-results).
+
+- The runner has 4 vCPU against 16 cores for the table above: CI numbers are comparable only within
+  one run.
+- If `netem` is unavailable on the runner, RTT 50 ms is not measured and the page omits those cells.
+- Manual run: Actions → **bench** → *Run workflow*. Nothing else has to stay up: setup, the run, the
+  results commit and the deploy are one workflow.
+
 ## Scenarios
 
 The list lives in [`lib/scenarios.json`](lib/scenarios.json): `xray_reality`, `xray_xhttp`,
-`singbox_reality`, `unbihex_reality`, `xraycl_ubisrv`, `ubicl_xraysrv`.
+`singbox_reality`, `unbihex_release` (release binaries), `unbihex_reality` (source build, needs
+`UNBIHEX_REPO`), `xraycl_ubisrv`, `ubicl_xraysrv`.
 
 To add one, extend `scenarios.json` (`ports`, `socks`, `start` — command and arguments) and, if a
 new config is needed, add a template in `configs/` with `@VARIABLES@` (substituted by `setup.sh`).
@@ -109,7 +134,8 @@ UNBIHEX_SERVER=/path/to/old/unbihex ./stand.py up xraycl_ubisrv
 ```
 
 `bins.env` (`.state/bins.env`, written by `setup.sh`) can be overridden with the `UNBIHEX_SERVER`
-and `UNBIHEX_CLI` environment variables.
+and `UNBIHEX_CLI` environment variables. The `unbihex_reality`, `xraycl_ubisrv` and `ubicl_xraysrv`
+scenarios use the source build: run `UNBIHEX_REPO=/path/to/unbihex ./setup.sh` first.
 
 ## Negative control
 
