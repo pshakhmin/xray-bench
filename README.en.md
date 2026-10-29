@@ -45,6 +45,29 @@ Since 0.2.3 the Unbihex release is `unbihex-cli` plus a separate `test_server` w
 schema; the stand installs those by default and measures them as `unbihex_release`, so do not compare
 its numbers with this table directly.
 
+### `wan` profile (16 cores, medians of 3 runs)
+
+Same stand, `--profile wan`: MTU 1500, GSO/TSO/GRO off, delay, 2 ms jitter, 0.1% loss. Ranges are
+min–max within the run. These are the numbers CI refreshes on Pages.
+
+| Engine (release binaries) | ↓1 MB/s, RTT≈0 | ↑1 MB/s, RTT≈0 | TTFB, RTT≈0 | conn/s | RSS server/client |
+|---|---|---|---|---|---|
+| Xray 26.10.29 | 132 [103–155] | 93 | 7.2 ms (p95 10.9) | 168 | 37/35 MB |
+| sing-box 1.14.4 | 181 [108–182] | 168 | 7.1 ms (p95 11.5) | 379 | 61/62 MB |
+| Unbihex 0.2.3 (`test_server` 0.0.1) | 95 [79–99] | 100 | 6.4 ms (p95 10.9) | 380 | 8/8 MB |
+
+| Engine | ↓1 MB/s, RTT 50 ms | TTFB, RTT 50 ms |
+|---|---|---|
+| Xray 26.10.29 | 63.1 [60.4–65.6] | 155.8 ms |
+| sing-box 1.14.4 | 79.6 [75.5–80.0] | 155.0 ms |
+| Unbihex 0.2.3 | 49.5 [47.9–50.9] | 154.1 ms |
+
+What it shows immediately: with real segmentation absolute numbers are three times lower than the
+loopback table, `↓1` spread reaches 40% (0.1% loss plus slow start), and Unbihex and sing-box reach
+three times Xray's connection rate. `↓8` is deliberately absent: with the same total payload
+(64 MiB across all connections) it measures the start of eight streams rather than steady state and
+comes out below `↓1` on a lossy profile. That is the next semantic fix.
+
 ## What is measured
 
 | Metric | How |
@@ -58,6 +81,30 @@ its numbers with this table directly.
 Every measurement is preceded by warmup: the first connection through a fresh engine is not
 representative (on loopback it sometimes stalls for ~5 s — a property of the bench, not of the
 engine).
+
+## Link profile
+
+By default (`--profile wan`) `lo` becomes a link that behaves like a real one: MTU 1500,
+GSO/TSO/GRO off, delay rtt/2 each way, 2 ms jitter, 0.1% loss. `--profile loopback` keeps the old
+behaviour (MTU 65536, offloads on, delay only); the table and charts above were taken with it.
+
+- MTU 1500 alone changes nothing: with GSO on, segments are coalesced anyway. Direct loopback,
+  256 MiB × 3 runs: 1413 MB/s (65536, GSO on) versus 602 MB/s (1500, GSO off) — that is the cost of
+  real segmentation.
+- `--loss PCT` and `--rate MBIT` override the profile. A rate cap deliberately flattens throughput:
+  at 100 Mbit every engine saturates the link and only CPU, TTFB and conn/s can differ.
+- Every result records `link` (profile, MTU, offload, delay, loss, rate), `machine` (CPU/RAM), and
+  per phase `sys` (system CPU, available memory, engine RSS) and `evidence` (qdisc drops/backlog,
+  tunnel socket retransmits), plus `valid` / `invalid_reasons`.
+
+## Precision and validity
+
+`./stand.py report --stats` prints min–max, the number of runs and the spread next to each median:
+`!` marks a rejected run (errors, in-phase spread > 60%), `§` a metric whose spread exceeds 20%.
+
+Repeatability of the same binary between sessions on this machine: 1–6% for `down1`, up to 33% for
+`down8`. **Differences below ~15% are noise**; build claims on `stand.py ab` (alternating A/B) and on
+metrics where the gap is a multiple of the spread.
 
 ## Topology
 
@@ -74,7 +121,8 @@ engine).
 ## Requirements
 
 - Linux, root (needs `tc` and an alias on `lo`).
-- `curl`, `tar`, `openssl`, `python3`, `ip`, `ss`, `tc`.
+- `curl`, `tar`, `openssl`, `python3`, `ip`, `ss`, `tc`; `ethtool` to turn GSO/TSO/GRO
+  off on `lo` (without it the `wan` profile degrades to MTU-only).
 - `cargo` — to build the `bench/` harness; and for Unbihex from source (`UNBIHEX_REPO=...`).
 - TUN mode needs `/dev/net/tun`; this bench does not use or test it.
 
@@ -188,21 +236,24 @@ NXDOMAIN answers carry the zone SOA in AUTHORITY (RFC 2308) so the engine can ne
 
 Every result in `results/*.json` records: versions and sha256 of all binaries, `git commit`,
 `branch` and `dirty`, the kernel, CPU model, core count, `net.ipv4.tcp_rmem`,
-`net.core.{r,w}mem_max`, netem parameters and port list, and the start time. The table printed by
-`./stand.py report` shows the commit next to the numbers.
+`net.core.{r,w}mem_max`, the link profile (`link`), system CPU and RAM (`sys`), qdisc and tunnel
+socket counters (`evidence`), a `valid` flag with rejection reasons, and the start time. The table
+printed by `./stand.py report` shows the commit next to the numbers; `--stats` adds the spread.
 
 ## Limitations (important)
 
-- **Loopback MTU 65536**: segments of 27–65 KB instead of 1400. Absolute MB/s are inflated and CPU
-  per MiB is understated. Only compare cells with each other.
-- **No bandwidth limit and no loss**: delay only. At 8 streams and 50 ms `netem` itself becomes
-  the bottleneck — do not quote those cells.
+- **Loopback even with the `wan` profile**: MTU, offloads and loss are emulated, but this is not a
+  NIC — there is no driver queue and no hardware. Do not carry absolute MB/s over to a real link.
+- **No bandwidth cap by default**: `--rate` exists, but the link is unlimited. At 8 streams and
+  50 ms `netem` itself becomes the bottleneck — now visible in `evidence.qdisc`
+  (drops/overlimits); do not quote those cells.
 - **No TUN**: the main Unbihex mode is not measured here, and `/dev/net/tun` may be missing in a
   container. TUN changes are covered by unit tests, not by this bench.
 - **Competitors out of the box**: Go binaries without `sockopt` tuning, Unbihex with its defaults.
   This compares what ships, not what is possible.
-- **CPU without system time**: loopback is dominated by syscalls, so CPU differences are
-  understated for everyone.
+- **CPU**: besides process utime+stime the results now carry system-wide busy time
+  (`sys.cpu.busy_ms`), but softirq/ksoftirqd are not attributed to a specific engine; loopback is
+  dominated by syscalls.
 - **REALITY `dest` is local**: the cost of probing a real remote site is higher than here.
 
 ## Known traps

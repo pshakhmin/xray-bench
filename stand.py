@@ -77,7 +77,10 @@ BINS = {
 
 def bin_path(name):
     b = BINS[name]
-    p = Path(b() if callable(b) else b)
+    raw = b() if callable(b) else b
+    if not str(raw).strip():
+        sys.exit(f"missing binary {name}: not configured (run setup.sh, or set UNBIHEX_REPO)")
+    p = Path(raw)
     if not p.exists():
         sys.exit(f"missing binary {name}: {p} (run setup.sh, or set UNBIHEX_REPO)")
     return p
@@ -99,19 +102,130 @@ def tunnel_ports():
     return sorted({p for s in SCENARIOS.values() for p in s["ports"]})
 
 
-def set_rtt(ms):
-    """Delay only the tunnel ports on lo, both directions, so the sink and the
-    SOCKS handshake are not delayed (that would distort TTFB)."""
+LINK_STATE = STATE / "link.json"
+
+
+def _lo_mtu():
+    r = sh("ip -o link show dev lo")
+    m = re.search(r"\bmtu (\d+)", r.stdout)
+    return int(m.group(1)) if m else None
+
+
+def _lo_offloads():
+    """Current gso/tso/gro state, or 'unavailable' when ethtool cannot tell."""
+    r = sh("ethtool -k lo")
+    if r.returncode != 0 or not r.stdout.strip():
+        return {k: "unavailable" for k in ("gso", "tso", "gro")}
+    table = {"gso": "generic-segmentation-offload",
+             "tso": "tcp-segmentation-offload",
+             "gro": "generic-receive-offload"}
+    out = {}
+    for key, name in table.items():
+        m = re.search(rf"^{name}:\s+(on|off)", r.stdout, re.M)
+        out[key] = m.group(1) if m else "unavailable"
+    return out
+
+
+def _load_original_link():
+    """Capture lo's real MTU/offloads once, before the first profile is applied."""
+    try:
+        d = json.loads(LINK_STATE.read_text())
+        if isinstance(d, dict) and "mtu" in d:
+            return d
+    except (OSError, json.JSONDecodeError):
+        pass
+    d = {"mtu": _lo_mtu(), **_lo_offloads()}
+    try:
+        STATE.mkdir(exist_ok=True)
+        LINK_STATE.write_text(json.dumps(d, indent=2))
+    except OSError:
+        pass
+    return d
+
+
+def restore_link():
+    """Undo the qdisc, MTU and offload changes; safe when nothing was applied."""
     sh("tc qdisc del dev lo root 2>/dev/null")
-    if ms <= 0:
+    try:
+        d = json.loads(LINK_STATE.read_text())
+    except (OSError, json.JSONDecodeError):
         return
-    half = ms // 2
-    sh("tc qdisc add dev lo root handle 1: prio bands 4 priomap " + " ".join(["0"] * 16))
-    sh(f"tc qdisc add dev lo parent 1:2 handle 20: netem delay {half}ms limit 20000")
-    sh(f"tc qdisc add dev lo parent 1:3 handle 30: netem delay {half}ms limit 20000")
-    for p in tunnel_ports():
-        sh(f"tc filter add dev lo parent 1: protocol ip prio 1 u32 match ip dport {p} 0xffff flowid 1:2")
-        sh(f"tc filter add dev lo parent 1: protocol ip prio 1 u32 match ip sport {p} 0xffff flowid 1:3")
+    mtu = d.get("mtu")
+    if isinstance(mtu, int):
+        sh(f"ip link set dev lo mtu {mtu}")
+    if shutil.which("ethtool"):
+        args = [f"{k} {d[k]}" for k in ("gso", "tso", "gro")
+                if d.get(k) in ("on", "off")]
+        if args:
+            sh("ethtool -K lo " + " ".join(args))
+
+
+def apply_link(profile, rtt, loss=None, rate=None):
+    """Shape lo like a real link and return the applied settings for the result.
+
+    loopback: MTU 65536, offloads on, delay only — today's behaviour.
+    wan:      MTU 1500, offloads off, delay=rtt/2 per direction, 2 ms jitter,
+              0.1% loss, no rate cap unless --rate is given. A rate cap is
+              implemented through netem and flattens throughput differences
+              between engines by design.
+    """
+    sh("tc qdisc del dev lo root 2>/dev/null")
+    profile = profile or "loopback"
+    _load_original_link()
+    if profile == "wan":
+        mtu, want_offload = 1500, False
+        jitter_ms = 2
+        loss_pct = 0.1 if loss is None else float(loss)
+    else:
+        mtu, want_offload = 65536, True
+        jitter_ms = 0
+        loss_pct = 0.0 if loss is None else float(loss)
+    rate_mbit = 0.0 if rate is None else float(rate)
+    sh(f"ip link set dev lo mtu {mtu}")
+    gso = "unavailable"
+    if shutil.which("ethtool"):
+        want = "on" if want_offload else "off"
+        if sh(f"ethtool -K lo gso {want} tso {want} gro {want}").returncode == 0:
+            gso = want
+    half = rtt // 2 if rtt > 0 else 0
+    # A wan profile keeps its jitter/loss even at RTT 0; loopback at RTT 0 stays
+    # a plain noqueue lo unless the caller asked for loss/rate explicitly.
+    if rtt > 0 or jitter_ms or loss_pct or rate_mbit:
+        opts = f"delay {half}ms"
+        if jitter_ms:
+            opts += f" {jitter_ms}ms"
+        if loss_pct:
+            opts += f" loss {loss_pct:g}%"
+        if rate_mbit:
+            opts += f" rate {rate_mbit:g}mbit"
+        opts += " limit 20000"
+        sh("tc qdisc add dev lo root handle 1: prio bands 4 priomap " + " ".join(["0"] * 16))
+        sh(f"tc qdisc add dev lo parent 1:2 handle 20: netem {opts}")
+        sh(f"tc qdisc add dev lo parent 1:3 handle 30: netem {opts}")
+        for p in tunnel_ports():
+            sh(f"tc filter add dev lo parent 1: protocol ip prio 1 u32 match ip dport {p} 0xffff flowid 1:2")
+            sh(f"tc filter add dev lo parent 1: protocol ip prio 1 u32 match ip sport {p} 0xffff flowid 1:3")
+    return {
+        "profile": profile,
+        "one_way_ms": half,
+        "jitter_ms": jitter_ms,
+        "loss_pct": loss_pct,
+        "rate_mbit": rate_mbit,
+        "mtu": mtu,
+        "gso": gso,
+    }
+
+
+def set_rtt(ms):
+    """Backwards-compatible shim for callers that only know about RTT.
+
+    ms == 0 fully restores lo (qdisc, MTU, offloads); ms > 0 applies the
+    delay-only loopback profile.
+    """
+    if ms <= 0:
+        restore_link()
+        return
+    apply_link("loopback", ms)
 
 
 def pid_file(scenario, name):
@@ -197,6 +311,318 @@ def cpu_ticks(pids):
         fields = stat[stat.rindex(")") + 2:].split()
         total += int(fields[11]) + int(fields[12])
     return total
+
+
+def read_cpu_stat():
+    """Aggregate CPU counters in clock ticks; /proc/stat's cpu line sums all CPUs."""
+    try:
+        with open("/proc/stat") as f:
+            line = f.readline()
+    except OSError:
+        return None
+    if not line.startswith("cpu "):
+        return None
+    try:
+        vals = [int(x) for x in line.split()[1:9]]
+    except ValueError:
+        return None
+    while len(vals) < 8:
+        vals.append(0)
+    user, nice, system, idle, iowait, irq, softirq, steal = vals[:8]
+    return {"user": user, "nice": nice, "system": system, "idle": idle,
+            "iowait": iowait, "irq": irq, "softirq": softirq, "steal": steal,
+            "total": user + nice + system + idle + iowait + irq + softirq + steal}
+
+
+def read_meminfo():
+    out = {}
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                key, _, rest = line.partition(":")
+                if key in ("MemTotal", "MemAvailable"):
+                    try:
+                        out[key] = int(rest.split()[0])
+                    except (ValueError, IndexError):
+                        pass
+    except OSError:
+        pass
+    return out
+
+
+def proc_rss(pid):
+    vals = {}
+    try:
+        with open(f"/proc/{pid}/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    try:
+                        vals["rss_kb"] = int(line.split()[1])
+                    except (ValueError, IndexError):
+                        pass
+                elif line.startswith("VmHWM:"):
+                    try:
+                        vals["hwm_kb"] = int(line.split()[1])
+                    except (ValueError, IndexError):
+                        pass
+    except OSError:
+        return None
+    return vals or None
+
+
+def sys_snapshot(cpu0, mem0, role_pids, sample=None):
+    """System CPU/RAM used during a phase plus the engines' resident memory."""
+    cpu1 = read_cpu_stat()
+    mem1 = read_meminfo()
+    out = {}
+    if cpu0 and cpu1:
+        try:
+            hz = os.sysconf("SC_CLK_TCK")
+        except (ValueError, OSError):
+            hz = 100
+        to_ms = lambda v: int(round(v * 1000.0 / hz))
+        d = {k: cpu1.get(k, 0) - cpu0.get(k, 0) for k in cpu0}
+        out["cpu"] = {
+            "busy_ms": to_ms(d["total"] - d["idle"] - d["iowait"]),
+            "user_ms": to_ms(d["user"] + d["nice"]),
+            "system_ms": to_ms(d["system"]),
+            "softirq_ms": to_ms(d["softirq"]),
+            "irq_ms": to_ms(d["irq"]),
+            "nproc": os.cpu_count(),
+        }
+    ram = {
+        "mem_total_kb": mem1.get("MemTotal", mem0.get("MemTotal")),
+        "mem_available_before_kb": mem0.get("MemAvailable"),
+        "mem_available_after_kb": mem1.get("MemAvailable"),
+    }
+    if isinstance(ram["mem_total_kb"], int) and isinstance(ram["mem_available_after_kb"], int):
+        ram["used_kb"] = ram["mem_total_kb"] - ram["mem_available_after_kb"]
+    if sample is not None and sample.available_min_kb is not None:
+        ram["available_min_kb"] = sample.available_min_kb
+    out["ram"] = ram
+    rss = {}
+    for role, ps in role_pids.items():
+        for pid in ps:
+            v = proc_rss(pid)
+            if v:
+                rss[role] = v
+                break
+    if sample is not None:
+        for role, peak in sample.rss_max.items():
+            rss.setdefault(role, {})["rss_max_kb"] = peak
+    if rss:
+        out["engine_rss_kb"] = rss
+    return out
+
+
+def qdisc_evidence():
+    """One tc call per phase: queue counters and a short raw dump."""
+    r = sh("tc -s qdisc show dev lo")
+    text = r.stdout.strip()
+    ev = {"dropped": 0, "overlimits": 0, "requeues": 0, "packets": 0,
+          "bytes": 0, "backlog": 0}
+    for m in re.finditer(r"Sent (\d+) bytes (\d+) pkt "
+                         r"\(dropped (\d+), overlimits (\d+) requeues (\d+)\)", text):
+        ev["bytes"] += int(m.group(1))
+        ev["packets"] += int(m.group(2))
+        ev["dropped"] += int(m.group(3))
+        ev["overlimits"] += int(m.group(4))
+        ev["requeues"] += int(m.group(5))
+    for m in re.finditer(r"backlog (\d+)b", text):
+        ev["backlog"] = max(ev["backlog"], int(m.group(1)))
+    ev["qdisc_raw"] = "\n".join(text.splitlines()[:20])
+    return ev
+
+
+def _drop_rate(dropped, packets):
+    return round(dropped / packets * 100, 2) if packets else 0.0
+
+
+def qdisc_delta(before, after):
+    """Per-phase delta of the cumulative qdisc counters, plus the raw totals."""
+    ev = {k: max(0, after.get(k, 0) - before.get(k, 0))
+          for k in ("dropped", "overlimits", "requeues", "packets", "bytes")}
+    ev["drop_rate_pct"] = _drop_rate(ev["dropped"], ev["packets"])
+    ev["backlog_max"] = max(before.get("backlog", 0), after.get("backlog", 0))
+    total = {k: after.get(k) for k in
+             ("dropped", "overlimits", "requeues", "packets", "bytes", "backlog")}
+    total["drop_rate_pct"] = _drop_rate(total["dropped"], total["packets"])
+    ev["qdisc_total"] = total
+    ev["qdisc_raw"] = after.get("qdisc_raw", "")
+    return ev
+
+
+def _parse_sock(lines, ports):
+    """Parse one `ss -tin` dump: matching ESTAB blocks, retrans, rtt and cwnd.
+
+    Both tunnel endpoints are local on this stand, so one connection shows up as
+    two ESTAB rows (client side and server side). Count unique port pairs, not
+    rows; retrans/rtt/cwnd/raw still come from every matching row.
+    """
+    keep = []
+    sockets = 0
+    seen = set()
+    retrans = 0
+    rtt = None
+    cwnd = None
+
+    def port_of(addr):
+        try:
+            return int(addr.rsplit(":", 1)[1])
+        except (ValueError, IndexError):
+            return None
+
+    i = 0
+    while i < len(lines):
+        parts = lines[i].split()
+        lp = port_of(parts[3]) if len(parts) > 4 else None
+        pp = port_of(parts[4]) if len(parts) > 4 else None
+        if parts and parts[0] == "ESTAB" and (lp in ports or pp in ports):
+            key = frozenset((lp, pp))
+            if key not in seen:
+                seen.add(key)
+                sockets += 1
+            block = [lines[i]]
+            j = i + 1
+            while j < len(lines) and lines[j].startswith((" ", "\t")):
+                block.append(lines[j])
+                j += 1
+            blob = "\n".join(block)
+            for m in re.finditer(r"retrans:(\d+)/", blob):
+                retrans += int(m.group(1))
+            m = re.search(r"\brtt:([\d.]+)/", blob)
+            if m:
+                try:
+                    rtt = float(m.group(1))
+                except ValueError:
+                    pass
+            m = re.search(r"\bcwnd:(\d+)", blob)
+            if m:
+                cwnd = int(m.group(1))
+            if len(keep) < 40:
+                keep.extend(block[:40 - len(keep)])
+            i = j
+            continue
+        i += 1
+    return {"sockets": sockets, "retrans": retrans, "rtt_ms": rtt, "cwnd": cwnd,
+            "sock_raw": "\n".join(keep[:40])}
+
+
+def sock_evidence():
+    """Post-phase fallback when the sampler never saw a socket."""
+    s = _parse_sock(sh("ss -tin").stdout.splitlines(), set(tunnel_ports()))
+    return {"sockets": s["sockets"], "retrans": s["retrans"], "sock_raw": s["sock_raw"]}
+
+
+class PhaseSampler(threading.Thread):
+    """Poll sockets, meminfo and engine RSS while the measured phase runs.
+
+    The transfer lasts hundreds of milliseconds, so sockets are already gone by
+    the time bench() returns; polling at ~4 Hz keeps the evidence in-phase.
+    """
+
+    def __init__(self, role_pids, interval=0.25):
+        super().__init__(daemon=True)
+        self.role_pids = role_pids
+        self.interval = interval
+        self._stop = threading.Event()
+        self.ports = set(tunnel_ports())
+        self.sockets_max = 0
+        self.retrans_total = 0
+        self.rtt_ms_last = None
+        self.cwnd_last = None
+        self.sock_raw = ""
+        self.available_min_kb = None
+        self.rss_max = {}
+
+    def sample(self):
+        s = _parse_sock(sh("ss -tin").stdout.splitlines(), self.ports)
+        self.sockets_max = max(self.sockets_max, s["sockets"])
+        self.retrans_total = max(self.retrans_total, s["retrans"])
+        if s["rtt_ms"] is not None:
+            self.rtt_ms_last = s["rtt_ms"]
+        if s["cwnd"] is not None:
+            self.cwnd_last = s["cwnd"]
+        if s["sock_raw"]:
+            self.sock_raw = s["sock_raw"]
+        avail = read_meminfo().get("MemAvailable")
+        if isinstance(avail, int):
+            self.available_min_kb = (avail if self.available_min_kb is None
+                                     else min(self.available_min_kb, avail))
+        for role, ps in self.role_pids.items():
+            for pid in ps:
+                v = proc_rss(pid)
+                if v and "rss_kb" in v:
+                    self.rss_max[role] = max(self.rss_max.get(role, 0), v["rss_kb"])
+                    break
+
+    def run(self):
+        while not self._stop.is_set():
+            try:
+                self.sample()
+            except Exception:
+                pass
+            self._stop.wait(self.interval)
+        try:
+            self.sample()  # final sample, taken just before the thread is joined
+        except Exception:
+            pass
+
+    def stop(self):
+        self._stop.set()
+        self.join(timeout=max(2.0, self.interval * 3))
+
+    def evidence(self):
+        if self.sockets_max or self.sock_raw:
+            return {"sockets": self.sockets_max,
+                    "retrans": self.retrans_total,
+                    "rtt_ms_last": self.rtt_ms_last,
+                    "cwnd_last": self.cwnd_last,
+                    "sock_raw": self.sock_raw}
+        return sock_evidence()
+
+
+def evaluate_validity(metrics):
+    """A measurement is only comparable if traffic actually flowed cleanly."""
+    reasons = []
+    if not isinstance(metrics, dict):
+        return False, ["no metrics"]
+    for name, m in metrics.items():
+        if name.endswith("_cpu"):
+            continue
+        if isinstance(m, dict) and m.get("error"):
+            reasons.append(f"{name}: error")
+    ttfb = metrics.get("ttfb") or {}
+    if isinstance(ttfb, dict):
+        try:
+            if int(ttfb.get("errors") or 0) > 0:
+                reasons.append(f"ttfb.errors={ttfb.get('errors')}")
+        except (TypeError, ValueError):
+            pass
+    conns = metrics.get("conns") or {}
+    if isinstance(conns, dict) and conns.get("count") is not None:
+        try:
+            if int(conns.get("success", 0)) < int(conns["count"]):
+                reasons.append(f"conns.success={conns.get('success')} < count={conns['count']}")
+        except (TypeError, ValueError):
+            pass
+    down1 = metrics.get("down1") or {}
+    med = down1.get("median_mbps") if isinstance(down1, dict) else None
+    if med is None:
+        reasons.append("down1.median_mbps missing")
+    else:
+        try:
+            med = float(med)
+            if med < 2:
+                reasons.append(f"down1.median_mbps={med} < 2")
+            mn, mx = down1.get("min_mbps"), down1.get("max_mbps")
+            if mn is not None and mx is not None and med > 0:
+                spread = (float(mx) - float(mn)) / med
+                if spread > 0.6:
+                    reasons.append(f"down1 spread {spread:.2f} > 0.6")
+        except (TypeError, ValueError):
+            pass
+    return (not reasons), reasons
 
 
 def repo_of(path):
@@ -290,21 +716,39 @@ def bench(args, timeout=300):
     return rows, r.stderr.strip()
 
 
-def measure(scenario, rtt, quick, runs, label):
+def measure(scenario, rtt, quick, runs, label, profile="wan", loss=None, rate=None):
     port = socks_port(scenario)
-    set_rtt(rtt)
+    link = apply_link(profile, rtt, loss, rate)
     pids = []
     for role in ("server", "client"):
         f = pid_file(scenario, role)
         if f.exists():
             pids.append(int(f.read_text()))
+    role_pids = {"server": pids[:1], "client": pids[1:]}
     result = provenance(scenario, rtt)
     result["label"] = label
+    result["link"] = link
     result["metrics"] = {}
+    mem_start = read_meminfo()
+    result["machine"] = {
+        "cpu_model": result.get("cpu"),
+        "nproc": os.cpu_count(),
+        "mem_total_kb": mem_start.get("MemTotal"),
+        "mem_available_kb_at_start": mem_start.get("MemAvailable"),
+    }
 
-    def phase(name, args, cpu=False):
+    def phase(name, args, cpu=False, runs_value=None):
         before = (cpu_ticks(pids[:1]), cpu_ticks(pids[1:])) if cpu else None
-        rows, err = bench(args)
+        cpu0 = read_cpu_stat()
+        mem0 = read_meminfo()
+        q_before = qdisc_evidence()
+        sampler = PhaseSampler(role_pids)
+        sampler.start()
+        try:
+            rows, err = bench(args)
+        finally:
+            sampler.stop()
+        q_after = qdisc_evidence()
         out = [r for r in rows if r.get("event") in ("summary", "conns")]
         summary = out[0] if out else {"error": err[:300]}
         if cpu:
@@ -316,6 +760,11 @@ def measure(scenario, rtt, quick, runs, label):
                 "server_ms_per_mib": round((cpu_ticks(pids[:1]) - before[0]) * 10 / mib, 2) if mib else None,
                 "client_ms_per_mib": round((cpu_ticks(pids[1:]) - before[1]) * 10 / mib, 2) if mib else None,
             }
+        if runs_value is not None:
+            summary["runs"] = runs_value
+        summary["sys"] = sys_snapshot(cpu0, mem0, role_pids, sampler)
+        summary["evidence"] = {"qdisc": qdisc_delta(q_before, q_after),
+                               "sock": sampler.evidence()}
         result["metrics"][name] = summary
 
     target = f"{VERSIONS['SINK_IP']}:{VERSIONS['SINK_PORT']}"
@@ -324,13 +773,15 @@ def measure(scenario, rtt, quick, runs, label):
     for _ in range(2):
         bench(f"run --proxy 127.0.0.1:{port} --target {target} --mode down --mib 32 --conns 1 --runs 1")
 
-    phase("down1", f"run --proxy 127.0.0.1:{port} --target {target} --mode down --mib 64 --conns 1 --runs {runs}", cpu=True)
+    phase("down1", f"run --proxy 127.0.0.1:{port} --target {target} --mode down --mib 64 --conns 1 --runs {runs}", cpu=True, runs_value=runs)
     if not quick:
-        phase("down8", f"run --proxy 127.0.0.1:{port} --target {target} --mode down --mib 64 --conns 8 --runs {max(1, runs - 1)}", cpu=True)
-        phase("up1", f"run --proxy 127.0.0.1:{port} --target {target} --mode up --mib 32 --conns 1 --runs {max(1, runs - 1)}", cpu=True)
+        phase("down8", f"run --proxy 127.0.0.1:{port} --target {target} --mode down --mib 64 --conns 8 --runs {max(1, runs - 1)}", cpu=True, runs_value=max(1, runs - 1))
+        phase("up1", f"run --proxy 127.0.0.1:{port} --target {target} --mode up --mib 32 --conns 1 --runs {max(1, runs - 1)}", cpu=True, runs_value=max(1, runs - 1))
     phase("ttfb", f"ttfb --proxy 127.0.0.1:{port} --target {target} --runs 30")
     if not quick:
         phase("conns", f"conns --proxy 127.0.0.1:{port} --target {target} --count 200 --par 4")
+
+    result["valid"], result["invalid_reasons"] = evaluate_validity(result["metrics"])
 
     RESULTS.mkdir(exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -981,6 +1432,106 @@ def report(pattern="*.json", markdown=False, files=None):
         say(f"\nwritten {out.relative_to(ROOT)}")
 
 
+def _spread_pct(m):
+    if not isinstance(m, dict) or m.get("error"):
+        return None
+    try:
+        med = float(m.get("median_mbps"))
+        mn = float(m.get("min_mbps"))
+        mx = float(m.get("max_mbps"))
+    except (TypeError, ValueError):
+        return None
+    if med <= 0:
+        return None
+    return (mx - mn) / med * 100.0
+
+
+def _mbps_cell(m):
+    if not isinstance(m, dict):
+        return "—"
+    if m.get("error"):
+        return "!"
+    if m.get("median_mbps") is None:
+        return "—"
+    med = m["median_mbps"]
+    mn, mx = m.get("min_mbps"), m.get("max_mbps")
+    rng = (f"[{mn:.1f}–{mx:.1f}]" if isinstance(mn, (int, float))
+           and isinstance(mx, (int, float)) else "[–]")
+    n = m.get("runs") or m.get("count") or "—"
+    return f"{med:.1f} {rng} {n}"
+
+
+def _ttfb_cell(m):
+    if not isinstance(m, dict):
+        return "—"
+    if m.get("error"):
+        return "!"
+    if m.get("median_ms") is None:
+        return "—"
+    s = f"{m['median_ms']:.2f}"
+    p95 = m.get("p95_ms")
+    if isinstance(p95, (int, float)):
+        s += f" [p95 {p95:.2f}]"
+    n = m.get("runs")
+    return f"{s} {n}" if n is not None else s
+
+
+def _conns_cell(m):
+    if not isinstance(m, dict):
+        return "—"
+    if m.get("error"):
+        return "!"
+    if m.get("conns_per_sec") is None:
+        return "—"
+    return f"{m['conns_per_sec']:.1f} {m.get('success', '?')}/{m.get('count', '?')}"
+
+
+def report_stats(pattern="*.json", valid_only=False):
+    """Per-result detail table: medians, ranges, spread and the validity flag."""
+    rows = []
+    for f in sorted(RESULTS.glob(pattern)):
+        d = json.loads(f.read_text())
+        if d.get("kind") == "dns" or "metrics" not in d:
+            continue
+        m = d.get("metrics") or {}
+        valid = d.get("valid")
+        reasons = d.get("invalid_reasons") or []
+        if not isinstance(valid, bool):
+            valid, reasons = evaluate_validity(m)
+        if valid_only and not valid:
+            continue
+        down1 = m.get("down1") or {}
+        spread = _spread_pct(down1)
+        flags = ""
+        if not valid:
+            flags += "!"
+        if any((_spread_pct(m.get(p)) or 0) > 20 for p in ("down1", "down8", "up1")):
+            flags += "§"
+        rows.append({
+            "scenario": d.get("scenario", "?"),
+            "rtt": d.get("rtt_ms", "?"),
+            "profile": (d.get("link") or {}).get("profile") or "—",
+            "label": d.get("label", ""),
+            "down1": _mbps_cell(down1),
+            "down8": _mbps_cell(m.get("down8")),
+            "up1": _mbps_cell(m.get("up1")),
+            "ttfb": _ttfb_cell(m.get("ttfb")),
+            "conns": _conns_cell(m.get("conns")),
+            "spread": "—" if spread is None else f"{spread:.1f}",
+            "flag": flags or "ok",
+        })
+    if not rows:
+        say("no results" + (" (valid only)" if valid_only else ""))
+        return
+    lines = ["| scenario | rtt | profile | label | ↓1 med [min–max] n | ↓8 med [min–max] n | "
+             "↑1 med [min–max] n | ttfb ms | conn/s ok/count | spread% | flag |",
+             "|---|---|---|---|---|---|---|---|---|---|---|"]
+    for r in rows:
+        lines.append(f"| {r['scenario']} | {r['rtt']} | {r['profile']} | {r['label']} | "
+                     f"{r['down1']} | {r['down8']} | {r['up1']} | {r['ttfb']} | {r['conns']} | "
+                     f"{r['spread']} | {r['flag']} |")
+    say("\n".join(lines))
+
 
 # ------------------------------------------------------------------ versions
 
@@ -1067,7 +1618,7 @@ DEFAULT_SCENARIOS = ["xray_reality", "xray_xhttp", "singbox_reality", "unbihex_r
                      "xraycl_ubisrv", "ubicl_xraysrv"]
 
 
-def bench_matrix(scenarios, rtts, quick, runs, control):
+def bench_matrix(scenarios, rtts, quick, runs, control, profile="wan", loss=None, rate=None):
     produced = []
     if control:
         say("== negative control ==")
@@ -1077,7 +1628,8 @@ def bench_matrix(scenarios, rtts, quick, runs, control):
         for scenario in scenarios:
             say(f"== {scenario}, RTT {rtt} ms ==")
             up(scenario)
-            produced.append(measure(scenario, rtt, quick, runs, label=""))
+            produced.append(measure(scenario, rtt, quick, runs, label="",
+                                    profile=profile, loss=loss, rate=rate))
             set_rtt(0)
     return produced
 
@@ -1107,10 +1659,26 @@ def main():
     p.add_argument("scenario"); p.add_argument("rtt", type=int, nargs="?", default=0)
     p.add_argument("--quick", action="store_true"); p.add_argument("--runs", type=int, default=3)
     p.add_argument("--label", default="")
+    p.add_argument("--profile", choices=["loopback", "wan"], default="wan",
+                   help="link profile: loopback (MTU 65536, offloads on, delay only) "
+                        "or wan (MTU 1500, offloads off, jitter+loss)")
+    p.add_argument("--loss", type=float, default=None,
+                   help="packet loss %% override (default: profile value)")
+    p.add_argument("--rate", type=float, default=None,
+                   help="netem rate cap in Mbit/s, 0 = unlimited (default). "
+                        "A rate cap flattens throughput differences by design")
     p = sub.add_parser("ab")
     p.add_argument("a"); p.add_argument("b"); p.add_argument("rtt", type=int, nargs="?", default=0)
     p.add_argument("--rounds", type=int, default=3); p.add_argument("--quick", action="store_true")
+    p.add_argument("--profile", choices=["loopback", "wan"], default="wan")
+    p.add_argument("--loss", type=float, default=None)
+    p.add_argument("--rate", type=float, default=None,
+                   help="netem rate cap in Mbit/s, 0 = unlimited; a rate cap flattens throughput differences by design")
     p = sub.add_parser("report"); p.add_argument("pattern", nargs="?", default="*.json")
+    p.add_argument("--stats", action="store_true",
+                   help="per-result table: medians, ranges, spread and validity flag")
+    p.add_argument("--valid-only", action="store_true",
+                   help="with --stats: hide results marked invalid")
     p = sub.add_parser("check"); p.add_argument("scenario")
     p = sub.add_parser("dns")
     p.add_argument("scenario")
@@ -1133,6 +1701,10 @@ def main():
     p.add_argument("--runs", type=int, default=3)
     p.add_argument("--control", action="store_true", default=True)
     p.add_argument("--no-control", dest="control", action="store_false")
+    p.add_argument("--profile", choices=["loopback", "wan"], default="wan")
+    p.add_argument("--loss", type=float, default=None)
+    p.add_argument("--rate", type=float, default=None,
+                   help="netem rate cap in Mbit/s, 0 = unlimited; a rate cap flattens throughput differences by design")
     args = ap.parse_args()
 
     if args.cmd == "up":
@@ -1145,14 +1717,25 @@ def main():
             stop_dnsd_all()
         set_rtt(0)
     elif args.cmd == "run":
-        measure(args.scenario, args.rtt, args.quick, args.runs, args.label)
+        try:
+            measure(args.scenario, args.rtt, args.quick, args.runs, args.label,
+                    profile=args.profile, loss=args.loss, rate=args.rate)
+        finally:
+            set_rtt(0)
     elif args.cmd == "ab":
-        for i in range(args.rounds):
-            for s in (args.a, args.b):
-                stop(s); up(s)
-                measure(s, args.rtt, args.quick, 1, f"{s}-r{i + 1}")
+        try:
+            for i in range(args.rounds):
+                for s in (args.a, args.b):
+                    stop(s); up(s)
+                    measure(s, args.rtt, args.quick, 1, f"{s}-r{i + 1}",
+                            profile=args.profile, loss=args.loss, rate=args.rate)
+        finally:
+            set_rtt(0)
     elif args.cmd == "report":
-        report(args.pattern)
+        if args.stats:
+            report_stats(args.pattern, valid_only=args.valid_only)
+        else:
+            report(args.pattern)
     elif args.cmd == "check":
         check(args.scenario)
     elif args.cmd == "dns":
@@ -1169,8 +1752,12 @@ def main():
                 sys.exit(f"unknown scenario {s}")
         rtts = [int(x) for x in args.rtt.split(",") if x.strip()]
         versions(False)
-        produced = bench_matrix(scenarios, rtts, args.quick, args.runs, args.control)
-        report(markdown=True, files=produced)
+        try:
+            produced = bench_matrix(scenarios, rtts, args.quick, args.runs, args.control,
+                                    profile=args.profile, loss=args.loss, rate=args.rate)
+            report(markdown=True, files=produced)
+        finally:
+            set_rtt(0)
 
 
 if __name__ == "__main__":
