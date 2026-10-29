@@ -177,6 +177,23 @@ def cpu_ticks(pids):
     return total
 
 
+def repo_of(path):
+    """The git repository a binary was built in (worktrees included)."""
+    p = Path(path).resolve()
+    for parent in [p, *p.parents]:
+        if (parent / ".git").exists():
+            return parent
+    return None
+
+
+def git_info(repo):
+    return {
+        "commit": sh(f"git -C {repo} rev-parse HEAD").stdout.strip(),
+        "branch": sh(f"git -C {repo} rev-parse --abbrev-ref HEAD").stdout.strip(),
+        "dirty": sh(f"git -C {repo} status --porcelain").stdout.strip() != "",
+    }
+
+
 def sha256(path):
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -216,7 +233,11 @@ def provenance(scenario, rtt):
     for name in ("xray", "singbox", "unbihex-server", "unbihex-cli"):
         try:
             p = bin_path(name)
-            info["inputs"][name] = {"path": str(p), "sha256": sha256(p), "version": version_of(p)}
+            entry = {"path": str(p), "sha256": sha256(p), "version": version_of(p)}
+            repo = repo_of(p)
+            if repo:
+                entry["git"] = git_info(repo)
+            info["inputs"][name] = entry
         except SystemExit:
             pass
     repo = Path(env("UNBIHEX_REPO", "")) if env("UNBIHEX_REPO") else None
