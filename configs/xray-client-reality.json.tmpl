@@ -1,0 +1,31 @@
+{
+  "log": { "loglevel": "warning" },
+  "inbounds": [
+    { "listen": "127.0.0.1", "port": @SOCKS_PORT@, "protocol": "socks", "settings": { "udp": false } }
+  ],
+  "outbounds": [
+    {
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "127.0.0.1",
+            "port": @SERVER_PORT@,
+            "users": [{ "id": "@UUID@", "encryption": "none", "flow": "" }]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "@NETWORK@",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "@SNI@",
+          "fingerprint": "chrome",
+          "publicKey": "@PUBLIC_KEY@",
+          "shortId": "@SHORT_ID@",
+          "spiderX": "/"
+        }@XHTTP_SETTINGS@
+      }
+    }
+  ]
+}

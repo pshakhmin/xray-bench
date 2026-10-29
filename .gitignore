@@ -1,0 +1,10 @@
+# Generated and machine-specific, never committed.
+cache/
+.state/
+results/
+logs/
+configs/*.json
+bench/target/
+
+__pycache__/
+report.md
