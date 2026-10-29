@@ -108,6 +108,19 @@ def pid_file(scenario, name):
     return PIDS / f"{scenario}-{name}.pid"
 
 
+def stop_all():
+    """One scenario at a time: orphan servers would share ports (Xray uses
+    SO_REUSEPORT) and the kernel would silently balance connections between them."""
+    # Only scenario processes: dest and sink are owned by setup.sh and must survive.
+    for f in list(PIDS.glob("*-server.pid")) + list(PIDS.glob("*-client.pid")):
+        try:
+            pid = int(f.read_text())
+            os.kill(pid, signal.SIGTERM)
+        except (OSError, ValueError):
+            pass
+        f.unlink(missing_ok=True)
+
+
 def stop(scenario):
     for f in PIDS.glob(f"{scenario}-*.pid"):
         try:
@@ -130,7 +143,7 @@ def wait_port(port, timeout=20.0):
 def up(scenario):
     if scenario not in SCENARIOS:
         sys.exit(f"unknown scenario {scenario}; known: {', '.join(SCENARIOS)}")
-    stop(scenario)
+    stop_all()
     for proc in SCENARIOS[scenario]["start"]:
         cmd = [str(bin_path(proc["bin"]))] + proc["args"]
         log = open(ROOT / f"logs/{scenario}-{proc['name']}.log", "w")
@@ -144,6 +157,11 @@ def up(scenario):
             if log.exists():
                 say(f"--- {log.name} ---\n" + log.read_text()[-2000:])
         sys.exit(f"scenario {scenario}: SOCKS port {port} did not come up")
+    # The port must belong to the client we just started, not to a leftover.
+    listener = sh(f"ss -lntp | grep ':{port} '").stdout
+    client_pid = pid_file(scenario, "client").read_text()
+    if f"pid={client_pid}" not in listener:
+        sys.exit(f"scenario {scenario}: port {port} is not owned by pid {client_pid}:\n{listener}")
     say(f"up: {scenario} (socks 127.0.0.1:{port})")
 
 

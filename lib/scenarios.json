@@ -1,50 +1,166 @@
 {
   "xray_reality": {
-    "ports": [18443],
+    "ports": [
+      18443
+    ],
     "socks": 10808,
     "start": [
-      { "name": "server", "bin": "xray", "args": ["run", "-c", "configs/xray-server-reality.json"] },
-      { "name": "client", "bin": "xray", "args": ["run", "-c", "configs/xray-client-reality.json"] }
+      {
+        "name": "server",
+        "bin": "xray",
+        "args": [
+          "run",
+          "-c",
+          "configs/xray-server-reality.json"
+        ]
+      },
+      {
+        "name": "client",
+        "bin": "xray",
+        "args": [
+          "run",
+          "-c",
+          "configs/xray-client-reality.json"
+        ]
+      }
     ]
   },
   "xray_xhttp": {
-    "ports": [18444],
+    "ports": [
+      18444
+    ],
     "socks": 10808,
     "start": [
-      { "name": "server", "bin": "xray", "args": ["run", "-c", "configs/xray-server-xhttp-reality.json"] },
-      { "name": "client", "bin": "xray", "args": ["run", "-c", "configs/xray-client-xhttp-reality.json"] }
+      {
+        "name": "server",
+        "bin": "xray",
+        "args": [
+          "run",
+          "-c",
+          "configs/xray-server-xhttp-reality.json"
+        ]
+      },
+      {
+        "name": "client",
+        "bin": "xray",
+        "args": [
+          "run",
+          "-c",
+          "configs/xray-client-xhttp-reality.json"
+        ]
+      }
     ]
   },
   "singbox_reality": {
-    "ports": [18453],
+    "ports": [
+      18453
+    ],
     "socks": 10818,
     "start": [
-      { "name": "server", "bin": "singbox", "args": ["run", "-c", "configs/singbox-server-reality.json"] },
-      { "name": "client", "bin": "singbox", "args": ["run", "-c", "configs/singbox-client-reality.json"] }
+      {
+        "name": "server",
+        "bin": "singbox",
+        "args": [
+          "run",
+          "-c",
+          "configs/singbox-server-reality.json"
+        ]
+      },
+      {
+        "name": "client",
+        "bin": "singbox",
+        "args": [
+          "run",
+          "-c",
+          "configs/singbox-client-reality.json"
+        ]
+      }
     ]
   },
   "unbihex_reality": {
-    "ports": [18463],
+    "ports": [
+      18463
+    ],
     "socks": 10808,
     "start": [
-      { "name": "server", "bin": "unbihex-server", "args": ["run", "-c", "configs/unbihex-server-reality.json"] },
-      { "name": "client", "bin": "unbihex-cli", "args": ["--dir", ".state/ubcli", "connect", "--mode", "proxy", "--routing", "global"] }
+      {
+        "name": "server",
+        "bin": "unbihex-server",
+        "args": [
+          "run",
+          "-c",
+          "configs/unbihex-server-reality.json"
+        ]
+      },
+      {
+        "name": "client",
+        "bin": "unbihex-cli",
+        "args": [
+          "--dir",
+          ".state/ubcli-ubi",
+          "connect",
+          "--mode",
+          "proxy",
+          "--routing",
+          "global"
+        ]
+      }
     ]
   },
   "xraycl_ubisrv": {
-    "ports": [18463],
+    "ports": [
+      18463
+    ],
     "socks": 10808,
     "start": [
-      { "name": "server", "bin": "unbihex-server", "args": ["run", "-c", "configs/unbihex-server-reality.json"] },
-      { "name": "client", "bin": "xray", "args": ["run", "-c", "configs/xray-client-to-unbihex.json"] }
+      {
+        "name": "server",
+        "bin": "unbihex-server",
+        "args": [
+          "run",
+          "-c",
+          "configs/unbihex-server-reality.json"
+        ]
+      },
+      {
+        "name": "client",
+        "bin": "xray",
+        "args": [
+          "run",
+          "-c",
+          "configs/xray-client-to-unbihex.json"
+        ]
+      }
     ]
   },
   "ubicl_xraysrv": {
-    "ports": [18443],
+    "ports": [
+      18443
+    ],
     "socks": 10808,
     "start": [
-      { "name": "server", "bin": "xray", "args": ["run", "-c", "configs/xray-server-reality.json"] },
-      { "name": "client", "bin": "unbihex-cli", "args": ["--dir", ".state/ubcli", "connect", "--mode", "proxy", "--routing", "global"] }
+      {
+        "name": "server",
+        "bin": "xray",
+        "args": [
+          "run",
+          "-c",
+          "configs/xray-server-reality.json"
+        ]
+      },
+      {
+        "name": "client",
+        "bin": "unbihex-cli",
+        "args": [
+          "--dir",
+          ".state/ubcli",
+          "connect",
+          "--mode",
+          "proxy",
+          "--routing",
+          "global"
+        ]
+      }
     ]
   }
 }

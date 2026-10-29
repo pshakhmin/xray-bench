@@ -139,9 +139,16 @@ UNBIHEX_SERVER=$UNBIHEX_REPO/unbihex-server/target/release/unbihex
 UNBIHEX_CLI=$UNBIHEX_REPO/unbihex-client/target/release/unbihex-cli
 EOF
   . .state/bins.env
-  "$UNBIHEX_CLI" --dir .state/ubcli add \
-    "vless://$UUID@127.0.0.1:$XRAY_REALITY_PORT?security=reality&sni=$SNI&pbk=$PUBLIC_KEY&sid=$SHORT_ID&fp=chrome&type=tcp#xray-reality" >/dev/null
+  if ! "$UNBIHEX_CLI" --dir .state/ubcli list 2>/dev/null | grep -q "xray-reality"; then
+    "$UNBIHEX_CLI" --dir .state/ubcli add \
+      "vless://$UUID@127.0.0.1:$XRAY_REALITY_PORT?security=reality&sni=$SNI&pbk=$PUBLIC_KEY&sid=$SHORT_ID&fp=chrome&type=tcp#xray-reality" >/dev/null
+  fi
   "$UNBIHEX_CLI" --dir .state/ubcli select 1 >/dev/null
+  if ! "$UNBIHEX_CLI" --dir .state/ubcli-ubi list 2>/dev/null | grep -q "unbihex-reality"; then
+    "$UNBIHEX_CLI" --dir .state/ubcli-ubi add \
+      "vless://$UUID@127.0.0.1:$UNBIHEX_REALITY_PORT?security=reality&sni=$SNI&pbk=$PUBLIC_KEY&sid=$SHORT_ID&fp=chrome&type=tcp#unbihex-reality" >/dev/null
+  fi
+  "$UNBIHEX_CLI" --dir .state/ubcli-ubi select 1 >/dev/null
 fi
 [ -f .state/bins.env ] || : > .state/bins.env
 
