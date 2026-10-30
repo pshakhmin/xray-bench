@@ -1,0 +1,26 @@
+{
+  "log": { "level": "warning" },
+  "dns": {
+    "upstream": [ @DNS_UPSTREAMS@ ],
+    "ttl": 5
+  },
+  "inbounds": [
+    {
+      "type": "vless",
+      "tag": "vless-reality",
+      "listen": "127.0.0.1:@PORT@",
+      "users": [{ "id": "@UUID@", "email": "bench" }],
+      "reality": {
+        "dest": "127.0.0.1:@DEST_PORT@",
+        "server_names": ["@SNI@"],
+        "private_key": "@PRIVATE_KEY@",
+        "short_ids": ["@SHORT_ID@"]
+      }
+    }
+  ],
+  "outbounds": [
+    { "type": "direct", "tag": "direct" },
+    { "type": "block", "tag": "block" }
+  ],
+  "route": { "final": "direct" }
+}

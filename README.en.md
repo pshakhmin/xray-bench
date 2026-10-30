@@ -224,6 +224,20 @@ dig @127.0.0.1 -p 15353 n000.dns.test A
 dig @127.0.0.1 -p 15353 +tcp n000.dns.test AAAA
 ```
 
+
+### Results (loopback, medians, dnsd with zero delay)
+
+| Engine | cold, 20 names | warm, same names | stampede, 20 connections to one name | first upstream is a black hole |
+|---|---|---|---|---|
+| Xray 26.10.29 | 4.9 ms, 40 queries (A+AAAA) | 0 upstream queries | 2 queries, 21.5 ms | works, but **8.0 s** per name |
+| sing-box 1.14.4 | 4.4 ms, 40 queries | 0 queries | 2 queries, 25.7 ms | **no failover, connections fail** |
+| Unbihex (`dns/all` branch) | 3.8 ms, 40 queries | 0 queries | 2 queries, 6.7 ms | 204 ms per name |
+
+Unbihex is measured through `test_server` (its server moved out of the upstream repository) and the
+server side resolves, exactly like the direct/freedom outbound does for Xray and sing-box. Released
+0.2.2 cannot be measured here: without a TUN it ignores `dns.upstream` and uses the system resolver,
+so the scenario refuses to print numbers instead of showing zero queries.
+
 `leak` is the negative control: with dnsd as the only upstream, a fresh name succeeds and dnsd's
 log counts the queries; after dnsd is stopped the same CONNECT must fail. If it still succeeds, the
 engine used the OS resolver or a cached answer and the DNS numbers are worthless. NODATA and

@@ -825,11 +825,52 @@ DNS_SERVER_TMPL = {
     "xray_xhttp": ("xray-server-xhttp-reality-dns.json.tmpl", "xray"),
     "singbox_reality": ("singbox-server-reality-dns.json.tmpl", "singbox"),
     "unbihex_reality": ("unbihex-server-reality-dns.json.tmpl", "unbihex"),
+    "unbihex_release": ("unbihex-testserver-reality-dns.json.tmpl", "unbihex"),
     "xraycl_ubisrv": ("unbihex-server-reality-dns.json.tmpl", "unbihex"),
     "ubicl_xraysrv": ("xray-server-reality-dns.json.tmpl", "xray"),
 }
 # The newer Unbihex config shape: dns.servers instead of dns.upstream. Old
 # builds reject the unknown field, so it is a separate template and opt-in.
+# Scenarios where only the client resolves names: the bench cannot prove anything
+# by editing the server config, so the client's own state.json is patched instead.
+CLIENT_DNS_ONLY = set()
+
+
+def ub_client_state_path(scenario):
+    """Path of the Unbihex CLI state.json used by this scenario, if any."""
+    for proc in SCENARIOS[scenario]["start"]:
+        if proc["name"] != "client" or "unbihex-cli" not in proc["bin"]:
+            continue
+        args = proc["args"]
+        if "--dir" in args:
+            return ROOT / args[args.index("--dir") + 1] / "state.json"
+    return None
+
+
+def patch_client_dns(scenario, upstreams):
+    """Point the Unbihex client's own resolver at dnsd before it starts.
+
+    Unbihex resolves target names in the client, so dns.upstream in a server
+    config proves nothing: without this the client keeps using the OS resolver.
+    """
+    path = ub_client_state_path(scenario)
+    if path is None or not path.exists():
+        return None
+    original = path.read_text()
+    data = json.loads(original)
+    data.setdefault("settings", {})["dns_upstream"] = [f"{host}:{port}"
+                                                       for host, port in upstreams]
+    path.write_text(json.dumps(data, ensure_ascii=False))
+    return path, original
+
+
+def restore_client_dns(saved):
+    if saved is None:
+        return
+    path, original = saved
+    path.write_text(original)
+
+
 DNS_SERVER_TMPL_SERVERS = {
     "unbihex_reality": ("unbihex-server-reality-dns-servers.json.tmpl", "unbihex-servers"),
     "xraycl_ubisrv": ("unbihex-server-reality-dns-servers.json.tmpl", "unbihex-servers"),
@@ -1096,9 +1137,9 @@ def dns_run(scenario, sub, n, delay_ms, label, rtt, timeout, dns_servers=False,
             no_soa=False):
     if scenario not in SCENARIOS:
         sys.exit(f"unknown scenario {scenario}; known: {', '.join(SCENARIOS)}")
-    if scenario not in DNS_SERVER_TMPL:
+    if scenario not in DNS_SERVER_TMPL and scenario not in CLIENT_DNS_ONLY:
         sys.exit(f"{scenario}: no DNS server template; use one of "
-                 f"{', '.join(DNS_SERVER_TMPL)}")
+                 f"{', '.join(sorted(set(DNS_SERVER_TMPL) | CLIENT_DNS_ONLY))}")
     if not (ROOT / ".state/keys.env").exists():
         say("no rendered configs yet; calling setup.sh")
         subprocess.run([str(ROOT / "setup.sh")], cwd=ROOT, check=True)
@@ -1108,6 +1149,7 @@ def dns_run(scenario, sub, n, delay_ms, label, rtt, timeout, dns_servers=False,
     ensure_sink6()
     set_rtt(rtt)
     clean = []
+    client_state = None
     try:
         if sub == "dead":
             dnsd = [start_dnsd("dead", DNS_BASE_PORT, delay_ms, fail=True, no_soa=no_soa),
@@ -1117,13 +1159,22 @@ def dns_run(scenario, sub, n, delay_ms, label, rtt, timeout, dns_servers=False,
             dnsd = [start_dnsd("live", DNS_BASE_PORT, delay_ms, no_soa=no_soa)]
             upstreams = [("127.0.0.1", DNS_BASE_PORT)]
         clean.extend(dnsd)
-        cfg = dns_config(scenario, upstreams, dns_servers)
-        dns_up(scenario, cfg)
+        client_state = patch_client_dns(scenario, upstreams)
+        if scenario in CLIENT_DNS_ONLY:
+            # The server resolves nothing this measurement depends on: only the
+            # client's own resolver is under test.
+            up(scenario)
+        else:
+            cfg = dns_config(scenario, upstreams, dns_servers)
+            dns_up(scenario, cfg)
         port = socks_port(scenario)
         log = dnsd[0]["log"]
-        is_unbihex = (DNS_SERVER_TMPL_SERVERS if (dns_servers and scenario in
-                      DNS_SERVER_TMPL_SERVERS) else DNS_SERVER_TMPL)[scenario][1] \
-            .startswith("unbihex")
+        if scenario in CLIENT_DNS_ONLY:
+            is_unbihex = True
+        else:
+            is_unbihex = (DNS_SERVER_TMPL_SERVERS if (dns_servers and scenario in
+                          DNS_SERVER_TMPL_SERVERS) else DNS_SERVER_TMPL)[scenario][1] \
+                .startswith("unbihex")
 
         def require_dns_traffic():
             """Old Unbihex ignores dns.upstream without a TUN: refuse, do not fake."""
@@ -1337,6 +1388,7 @@ def dns_run(scenario, sub, n, delay_ms, label, rtt, timeout, dns_servers=False,
         sys.exit(f"unknown DNS subcommand {sub}")
     finally:
         stop(scenario)
+        restore_client_dns(client_state)
         for info in clean:
             stop_dnsd(info["tag"])
         set_rtt(0)
