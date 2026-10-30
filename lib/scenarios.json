@@ -192,5 +192,95 @@
         ]
       }
     ]
+  },
+  "ubicl_xhttp": {
+    "ports": [
+      18444
+    ],
+    "socks": 10808,
+    "start": [
+      {
+        "name": "server",
+        "bin": "xray",
+        "args": [
+          "run",
+          "-c",
+          "configs/xray-server-xhttp-reality.json"
+        ]
+      },
+      {
+        "name": "client",
+        "bin": "unbihex-cli-release",
+        "args": [
+          "--dir",
+          ".state/ubcli-xhttp",
+          "connect",
+          "--mode",
+          "proxy",
+          "--routing",
+          "global"
+        ]
+      }
+    ]
+  },
+  "ubicl_branch_reality": {
+    "ports": [
+      18443
+    ],
+    "socks": 10808,
+    "start": [
+      {
+        "name": "server",
+        "bin": "xray",
+        "args": [
+          "run",
+          "-c",
+          "configs/xray-server-reality.json"
+        ]
+      },
+      {
+        "name": "client",
+        "bin": "unbihex-cli-branch",
+        "args": [
+          "--dir",
+          ".state/ubcli",
+          "connect",
+          "--mode",
+          "proxy",
+          "--routing",
+          "global"
+        ]
+      }
+    ]
+  },
+  "ubicl_branch_xhttp": {
+    "ports": [
+      18444
+    ],
+    "socks": 10808,
+    "start": [
+      {
+        "name": "server",
+        "bin": "xray",
+        "args": [
+          "run",
+          "-c",
+          "configs/xray-server-xhttp-reality.json"
+        ]
+      },
+      {
+        "name": "client",
+        "bin": "unbihex-cli-branch",
+        "args": [
+          "--dir",
+          ".state/ubcli-xhttp",
+          "connect",
+          "--mode",
+          "proxy",
+          "--routing",
+          "global"
+        ]
+      }
+    ]
   }
 }

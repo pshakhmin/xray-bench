@@ -76,6 +76,7 @@ BINS = {
     "unbihex-cli": lambda: env("UNBIHEX_CLI", ""),
     "unbihex-server-release": lambda: env("UNBIHEX_SERVER_RELEASE", ""),
     "unbihex-cli-release": lambda: env("UNBIHEX_CLI_RELEASE", ""),
+    "unbihex-cli-branch": lambda: env("UNBIHEX_CLI_BRANCH", ""),
 }
 
 

@@ -192,7 +192,9 @@ are committed to [`ci-results/`](ci-results).
 
 The list lives in [`lib/scenarios.json`](lib/scenarios.json): `xray_reality`, `xray_xhttp`,
 `singbox_reality`, `unbihex_release` (release binaries), `unbihex_reality` (source build, needs
-`UNBIHEX_REPO`), `xraycl_ubisrv`, `ubicl_xraysrv`.
+`UNBIHEX_REPO`), `xraycl_ubisrv`, `ubicl_xraysrv` (our client → Xray server), `ubicl_xhttp` (the
+same over XHTTP) and `ubicl_branch_reality` / `ubicl_branch_xhttp` (a branch build, needs
+`UNBIHEX_CLI_BRANCH`). One server, several clients, so the clients compare against each other.
 
 To add one, extend `scenarios.json` (`ports`, `socks`, `start` — command and arguments) and, if a
 new config is needed, add a template in `configs/` with `@VARIABLES@` (substituted by `setup.sh`).

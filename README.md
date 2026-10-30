@@ -192,7 +192,9 @@ GitHub и публикует дашборд: **<https://pshakhmin.github.io/xray
 
 Список — в [`lib/scenarios.json`](lib/scenarios.json). Сейчас: `xray_reality`, `xray_xhttp`,
 `singbox_reality`, `unbihex_release` (релизные бинари), `unbihex_reality` (сборка из исходников,
-нужен `UNBIHEX_REPO`), `xraycl_ubisrv`, `ubicl_xraysrv`.
+нужен `UNBIHEX_REPO`), `xraycl_ubisrv`, `ubicl_xraysrv` (наш клиент → Xray-сервер), `ubicl_xhttp`
+(то же по XHTTP) и `ubicl_branch_reality` / `ubicl_branch_xhttp` (клиент из ветки, нужен
+`UNBIHEX_CLI_BRANCH`). Так один и тот же сервер сравнивает клиентов между собой.
 
 Добавить свой: дописать запись в `scenarios.json` (`ports`, `socks`, `start` — команда и
 аргументы) и, если нужен новый конфиг, шаблон в `configs/` с `@ПЕРЕМЕННЫМИ@` (их
