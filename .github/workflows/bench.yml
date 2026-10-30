@@ -55,7 +55,10 @@ jobs:
           fi
 
   bench:
-    runs-on: ubuntu-latest
+    # Self-hosted VM (xray-bench-runner, 192.168.1.130): real CAP_NET_ADMIN for
+    # tc/netem on lo, own kernel, no noisy neighbours — the hosted runner fakes
+    # the 50 ms RTT cells or skips them.
+    runs-on: [self-hosted, xray-bench]
     needs: pins
     timeout-minutes: 90
     environment:
