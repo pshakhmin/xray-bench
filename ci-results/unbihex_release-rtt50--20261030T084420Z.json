@@ -1,0 +1,226 @@
+{
+  "ts": "2026-10-30T08:42:03+00:00",
+  "scenario": "unbihex_release",
+  "rtt_ms": 50,
+  "kernel": "6.8.0-147-generic",
+  "cpu": "Intel(R) Xeon(R) CPU E5-2698B v3 @ 2.00GHz",
+  "nproc": 6,
+  "sysctl": {
+    "net.ipv4.tcp_rmem": "4096\t131072\t6291456",
+    "net.core.rmem_max": "212992",
+    "net.core.wmem_max": "212992"
+  },
+  "netem": {
+    "one_way_ms": 25,
+    "limit": 20000,
+    "ports": [
+      18443,
+      18444,
+      18453,
+      18463,
+      18473
+    ]
+  },
+  "scenario_procs": {
+    "server": 36700,
+    "client": 36701
+  },
+  "inputs": {
+    "xray": {
+      "path": "/opt/actions-runner/_work/xray-bench/xray-bench/cache/xray/xray",
+      "sha256": "e783b9d2b46ed1ab3617c59b04dfbce38c999322d018c6e060f18d88bf6158aa",
+      "version": "Xray 26.10.29 (Xray, Penetrates Everything.) 0afec66 (go1.27.3 linux/amd64)",
+      "git": {
+        "commit": "0720e82313d6f600b89a5be9510a82ab1c80dcea",
+        "branch": "master",
+        "dirty": false
+      }
+    },
+    "singbox": {
+      "path": "/opt/actions-runner/_work/xray-bench/xray-bench/cache/sing-box/sing-box",
+      "sha256": "1264361b5f8868c8768f7555d3e77e20118bf503c41ac08bb290a0d99056aa3a",
+      "version": "sing-box version 1.14.4",
+      "git": {
+        "commit": "0720e82313d6f600b89a5be9510a82ab1c80dcea",
+        "branch": "master",
+        "dirty": false
+      }
+    },
+    "unbihex-server": {
+      "path": "/opt/actions-runner/_work/xray-bench/xray-bench/cache/unbihex-server/test_server",
+      "sha256": "e0a67b0ded8f13d9452b866e37edef68b23b3847d15d791a5045b127a5a87eb6",
+      "version": "test_server 0.0.1 (engine 0.1.3) (linux/x86_64)",
+      "git": {
+        "commit": "0720e82313d6f600b89a5be9510a82ab1c80dcea",
+        "branch": "master",
+        "dirty": false
+      }
+    },
+    "unbihex-cli": {
+      "path": "/opt/actions-runner/_work/xray-bench/xray-bench/cache/unbihex-cli/unbihex-cli",
+      "sha256": "0c4481075ec7c9ee90c3d562abd871197275c1a4143546e09d289574fc8dd2bd",
+      "version": "unbihex-cli 0.2.3 (engine 0.1.3)",
+      "git": {
+        "commit": "0720e82313d6f600b89a5be9510a82ab1c80dcea",
+        "branch": "master",
+        "dirty": false
+      }
+    }
+  },
+  "label": "",
+  "link": {
+    "profile": "wan",
+    "one_way_ms": 25,
+    "jitter_ms": 2,
+    "loss_pct": 0.1,
+    "rate_mbit": 0.0,
+    "mtu": 1500,
+    "gso": "off"
+  },
+  "metrics": {
+    "down1_cpu": {
+      "server_ms": 660,
+      "client_ms": 3320,
+      "mib": 192,
+      "server_ms_per_mib": 3.44,
+      "client_ms_per_mib": 17.29
+    },
+    "down1": {
+      "event": "summary",
+      "mode": "down",
+      "median_mbps": 2.032,
+      "min_mbps": 1.864,
+      "max_mbps": 2.241,
+      "runs": 3,
+      "sys": {
+        "cpu": {
+          "busy_ms": 8680,
+          "user_ms": 2440,
+          "system_ms": 3560,
+          "softirq_ms": 2590,
+          "irq_ms": 0,
+          "nproc": 6
+        },
+        "ram": {
+          "mem_total_kb": 4008436,
+          "mem_available_before_kb": 3315672,
+          "mem_available_after_kb": 3311640,
+          "used_kb": 696796,
+          "available_min_kb": 3305032
+        },
+        "engine_rss_kb": {
+          "server": {
+            "hwm_kb": 6696,
+            "rss_kb": 6696,
+            "rss_max_kb": 6696
+          },
+          "client": {
+            "hwm_kb": 7068,
+            "rss_kb": 7068,
+            "rss_max_kb": 7088
+          }
+        }
+      },
+      "evidence": {
+        "qdisc": {
+          "dropped": 320,
+          "overlimits": 0,
+          "requeues": 0,
+          "packets": 786759,
+          "bytes": 863662723,
+          "drop_rate_pct": 0.04,
+          "backlog_max": 38336,
+          "qdisc_total": {
+            "dropped": 444,
+            "overlimits": 0,
+            "requeues": 0,
+            "packets": 1043975,
+            "bytes": 1151914114,
+            "backlog": 33228,
+            "drop_rate_pct": 0.04
+          },
+          "qdisc_raw": "qdisc prio 1: root refcnt 2 bands 4 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n Sent 860759270 bytes 732168 pkt (dropped 222, overlimits 0 requeues 0) \n backlog 33228b 30p requeues 0\nqdisc netem 30: parent 1:3 limit 20000 delay 25ms  2ms loss 0.1%\n Sent 281732600 bytes 189043 pkt (dropped 94, overlimits 0 requeues 0) \n backlog 31794b 11p requeues 0\nqdisc netem 20: parent 1:2 limit 20000 delay 25ms  2ms loss 0.1%\n Sent 9422244 bytes 122764 pkt (dropped 128, overlimits 0 requeues 0) \n backlog 1434b 19p requeues 0"
+        },
+        "sock": {
+          "sockets": 1,
+          "retrans": 5,
+          "rtt_ms_last": 50.714,
+          "cwnd_last": 41,
+          "sock_raw": "ESTAB      0      292496               127.0.0.1:18473              127.0.0.1:44806\n\t cubic wscale:7,7 rto:251 rtt:50.714/1.057 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:41 ssthresh:35 bytes_sent:67318810 bytes_retrans:63666 bytes_acked:67195776 bytes_received:1936 segs_out:47536 segs_in:30582 data_segs_out:47474 data_segs_in:5 send 9365146bps lastsnd:1 lastrcv:29829 lastack:1 pacing_rate 11238064bps delivery_rate 9927960bps delivered:47211 busy:29878ms rwnd_limited:5659ms(18.9%) sndbuf_limited:151ms(0.5%) unacked:41 retrans:0/46 dsack_dups:1 reordering:132 reord_seen:7458 rcv_space:14480 rcv_ssthresh:76744 notsent:233128 minrtt:46.081 rcv_ooopack:2 snd_wnd:252288"
+        }
+      }
+    },
+    "ttfb": {
+      "event": "summary",
+      "median_ms": 154.406,
+      "p95_ms": 158.045,
+      "runs": 30,
+      "errors": 0,
+      "sys": {
+        "cpu": {
+          "busy_ms": 270,
+          "user_ms": 110,
+          "system_ms": 140,
+          "softirq_ms": 20,
+          "irq_ms": 0,
+          "nproc": 6
+        },
+        "ram": {
+          "mem_total_kb": 4008436,
+          "mem_available_before_kb": 3311640,
+          "mem_available_after_kb": 3312968,
+          "used_kb": 695468,
+          "available_min_kb": 3311840
+        },
+        "engine_rss_kb": {
+          "server": {
+            "hwm_kb": 7356,
+            "rss_kb": 7356,
+            "rss_max_kb": 7356
+          },
+          "client": {
+            "hwm_kb": 8200,
+            "rss_kb": 8200,
+            "rss_max_kb": 8200
+          }
+        }
+      },
+      "evidence": {
+        "qdisc": {
+          "dropped": 2,
+          "overlimits": 0,
+          "requeues": 0,
+          "packets": 2498,
+          "bytes": 623254,
+          "drop_rate_pct": 0.08,
+          "backlog_max": 34676,
+          "qdisc_total": {
+            "dropped": 446,
+            "overlimits": 0,
+            "requeues": 0,
+            "packets": 1046483,
+            "bytes": 1152546716,
+            "backlog": 156,
+            "drop_rate_pct": 0.04
+          },
+          "qdisc_raw": "qdisc prio 1: root refcnt 2 bands 4 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n Sent 861190536 bytes 733871 pkt (dropped 223, overlimits 0 requeues 0) \n backlog 156b 2p requeues 0\nqdisc netem 30: parent 1:3 limit 20000 delay 25ms  2ms loss 0.1%\n Sent 281848292 bytes 189420 pkt (dropped 95, overlimits 0 requeues 0) \n backlog 0b 0p requeues 0\nqdisc netem 20: parent 1:2 limit 20000 delay 25ms  2ms loss 0.1%\n Sent 9507888 bytes 123192 pkt (dropped 128, overlimits 0 requeues 0) \n backlog 156b 2p requeues 0"
+        },
+        "sock": {
+          "sockets": 1,
+          "retrans": 0,
+          "rtt_ms_last": 50.782,
+          "cwnd_last": 10,
+          "sock_raw": "ESTAB      0      25                  127.0.0.1:18473              127.0.0.1:34344\n\t cubic wscale:7,7 rto:251 rtt:50.782/19.488 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:803 bytes_acked:778 bytes_received:1904 segs_out:8 segs_in:9 data_segs_out:2 data_segs_in:5 send 2281123bps lastsnd:28 lastrcv:29 lastack:29 pacing_rate 4562184bps delivery_rate 234152bps delivered:2 app_limited busy:77ms unacked:1 reordering:58 rcv_space:14480 rcv_ssthresh:76744 minrtt:49.471 rcv_ooopack:2 snd_wnd:67200 "
+        }
+      }
+    }
+  },
+  "machine": {
+    "cpu_model": "Intel(R) Xeon(R) CPU E5-2698B v3 @ 2.00GHz",
+    "nproc": 6,
+    "mem_total_kb": 4008436,
+    "mem_available_kb_at_start": 3303400
+  },
+  "valid": true,
+  "invalid_reasons": []
+}
