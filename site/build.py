@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """Build the static GitHub Pages dashboard for xray-bench.
 
-    python3 site/build.py [--results DIR] [--charts DIR] [--out DIR]
+    python3 site/build.py [--results DIR] [--charts DIR] [--out DIR] [--lang all|en|ru]
 
-Reads the benchmark JSON files and the committed reference charts, then writes a
-self-contained dashboard to ``site/dist``:
+Reads the benchmark JSON files and the committed reference charts, then writes
+two self-contained pages sharing one asset tree:
 
-    site/dist/index.html
+    site/dist/index.html             (English, lang="en")
+    site/dist/ru/index.html          (Russian, lang="ru")
     site/dist/assets/style.css
-    site/dist/assets/charts/*.svg   (the four committed reference charts)
+    site/dist/assets/charts/*.svg    (English reference charts)
+    site/dist/assets/charts/ru/*.svg (Russian charts, when charts/ru exists)
 
 Python standard library only.  The output is deterministic: no build timestamps,
-no random data, no externally loaded fonts, scripts or images.
+no random data, no externally loaded fonts or images.  The only script is the
+small inline language router in each page's head.
 """
 
 from __future__ import annotations
@@ -53,14 +56,7 @@ COLOR = {
 }
 
 BENCH_KEYS = ("down1", "down8", "up1", "ttfb", "conns")
-PHASES = (
-    ("down1", "↓1 download"),
-    ("down8", "↓8 download"),
-    ("up1", "↑1 upload"),
-    ("ttfb", "TTFB"),
-    ("conns", "Connection rate"),
-)
-PHASE_LABELS = dict(PHASES)
+PHASES = ("down1", "down8", "up1", "ttfb", "conns")
 EVIDENCE_MIN_DROP_THRESHOLD = 0.5
 EVIDENCE_LOSS_MULTIPLIER = 3.0
 EVIDENCE_BACKLOG_FRACTION = 0.5
@@ -73,6 +69,778 @@ INPUT_NAMES = {
 }
 ENGINE_NAMES = {"xray": "Xray", "singbox": "sing-box", "unbihex": "Unbihex"}
 ENGINE_ORDER = {"xray": 0, "singbox": 1, "unbihex": 2}
+
+SITE_URL = "https://pshakhmin.github.io/xray-bench/"
+LANGS = ("en", "ru")
+LANG = "en"
+
+# --------------------------------------------------------------------------
+# message catalog
+#
+# Every visible string lives here, once per language.  _msg() registers both
+# translations together, so a missing language is a build error rather than a
+# silent English leak.  Templates may contain HTML and {placeholders}; callers
+# pass already-escaped data for anything that comes from JSON.
+
+CATALOG = {lang: {} for lang in LANGS}
+
+
+def _msg(key: str, en: str, ru: str) -> None:
+    CATALOG["en"][key] = en
+    CATALOG["ru"][key] = ru
+
+
+def set_lang(lang: str) -> None:
+    global LANG
+    LANG = lang if lang in LANGS else "en"
+
+
+def t(key: str, **values) -> str:
+    template = CATALOG[LANG][key]
+    return template.format(**values) if values else template
+
+
+PLURALS = {
+    "en": {
+        "files": ("file", "files"),
+        "result_files": ("result file", "result files"),
+        "throughput_files": ("throughput file", "throughput files"),
+        "scenarios": ("scenario", "scenarios"),
+        "phases": ("phase", "phases"),
+    },
+    "ru": {
+        "files": ("файл", "файла", "файлов"),
+        "result_files": ("файл результата", "файла результатов", "файлов результатов"),
+        "throughput_files": ("файл throughput", "файла throughput", "файлов throughput"),
+        "scenarios": ("сценарий", "сценария", "сценариев"),
+        "phases": ("фаза", "фазы", "фаз"),
+    },
+}
+
+
+def p(count, key: str) -> str:
+    """Pick the plural form for the current language."""
+    number = abs(int(count))
+    forms = PLURALS[LANG][key]
+    if LANG == "ru":
+        if number % 10 == 1 and number % 100 != 11:
+            return forms[0]
+        if 2 <= number % 10 <= 4 and not 12 <= number % 100 <= 14:
+            return forms[1]
+        return forms[2]
+    return forms[0] if number == 1 else forms[1]
+
+
+def phase_label(key: str) -> str:
+    return t(f"phase.{key}")
+
+
+# page shell, meta, header
+_msg("meta.title", "xray-bench — proxy engine benchmark",
+     "xray-bench — бенчмарк прокси-движков")
+_msg(
+    "meta.description",
+    "A reproducible proxy-engine benchmark: Xray-core, sing-box and Unbihex on "
+    "loopback or a shaped WAN-like link, with throughput, TTFB, connection "
+    "rate, CPU, validity and qdisc/socket evidence.",
+    "Воспроизводимый бенчмарк прокси-движков: Xray-core, sing-box и Unbihex на "
+    "loopback или шейпованном WAN-канале — throughput, TTFB, скорость "
+    "соединений, CPU, валидность и счётчики qdisc/сокетов.",
+)
+_msg("page.skip", "Skip to content", "Перейти к содержимому")
+_msg("lang.label", "Language", "Язык")
+_msg("lang.en", "EN", "EN")
+_msg("lang.ru", "RU", "RU")
+_msg("lang.en_title", "English version", "Английская версия")
+_msg("lang.ru_title", "Russian version", "Русская версия")
+
+# hero
+_msg("hero.kicker", "proxy engine benchmark", "бенчмарк прокси-движков")
+# Proper nouns: identical in both languages.  Each name keeps its trailing
+# middot so a wrapped line never starts with a separator.
+HERO_TITLE = (
+    '<span class="h1-name">Xray '
+    '<span class="sep" aria-hidden="true">·</span></span> '
+    '<span class="h1-name">sing-box '
+    '<span class="sep" aria-hidden="true">·</span></span> '
+    '<span class="h1-name">Unbihex</span>'
+)
+_msg("hero.title", HERO_TITLE, HERO_TITLE)
+_msg(
+    "hero.lede",
+    "Xray-core, sing-box and Unbihex measured along SOCKS → REALITY/XHTTP → "
+    "engine server → sink: throughput, time to first byte, connection rate and "
+    "CPU cost, with the binary hashes, kernel, link profile and qdisc/socket "
+    "evidence recorded for every run.",
+    "Xray-core, sing-box и Unbihex на пути SOCKS → REALITY/XHTTP → сервер "
+    "движка → sink: пропускная способность, TTFB, скорость соединений и "
+    "затраты CPU — с хешами бинарников, ядром, профилем канала и счётчиками "
+    "qdisc/сокетов для каждого прогона.",
+)
+_msg(
+    "hero.note",
+    "Protocol-layer measurements on loopback, optionally shaped to a WAN-like "
+    "link. Compare cells within one run — not with a real network link.",
+    "Измерения на уровне протокола через loopback, при желании — с шейпингом "
+    "под WAN-канал. Сравнивайте ячейки внутри одного прогона, а не с реальным "
+    "каналом.",
+)
+_msg("hero.links_aria", "Project and data links", "Ссылки на проект и данные")
+_msg("link.repo", "Repository", "Репозиторий")
+_msg("link.readme_en", "README (English)", "README (English)")
+_msg("link.readme_ru", "README (Русский)", "README (Русский)")
+_msg("link.workflow", "CI workflow", "CI-воркфлоу")
+_msg("link.raw", "raw ci-results/", "исходные ci-results/")
+_msg("hero.spec_aria", "Bench at a glance", "Бенч в двух словах")
+_msg("spec.path.label", "Path", "Путь")
+_msg("spec.path.value", "SOCKS → REALITY / XHTTP → sink",
+     "SOCKS → REALITY / XHTTP → sink")
+_msg("spec.link.label", "Link", "Канал")
+_msg("spec.link.value", "WAN-like or loopback · recorded per run",
+     "WAN-подобный или loopback · фиксируется для прогона")
+_msg("spec.measures.label", "Measures", "Метрики")
+_msg("spec.measures.value", "throughput · TTFB · conn/s · CPU · evidence",
+     "throughput · TTFB · conn/s · CPU · evidence")
+_msg("spec.rule.label", "Rule", "Правило")
+_msg("spec.rule.value", "compare within one run", "сравнивать внутри одного прогона")
+
+# section numbers, titles and ledes
+_msg("section.01.number", "01", "01")
+_msg("section.02.number", "02", "02")
+_msg("section.03.number", "03", "03")
+_msg("section.04.number", "04", "04")
+_msg("section.05.number", "05", "05")
+_msg("section.01.title", "Latest CI run", "Последний прогон CI")
+_msg(
+    "section.01.lede",
+    "The newest contiguous set of result files. One JSON per measured "
+    "scenario × RTT; if a scenario was rerun, the newest file wins. Invalid "
+    "results are marked, not hidden.",
+    "Свежая серия результатов: файлы идут подряд, без разрывов. Один JSON на сценарий × RTT; если "
+    "сценарий перезапускали, побеждает новый файл. Невалидные результаты "
+    "помечаются, а не скрываются.",
+)
+_msg("section.02.title", "Results", "Результаты")
+_msg(
+    "section.02.lede",
+    "Charts and tables come from the same JSON. Invalid results are marked, "
+    "not hidden; missing values are shown as — and are never guessed.",
+    "Графики и таблицы — из одного JSON. Невалидные результаты помечаются, а "
+    "не скрываются; пропуски показаны как — и никогда не додумываются.",
+)
+_msg("section.03.title", "Cost & evidence", "Ресурсы и счётчики")
+_msg(
+    "section.03.lede",
+    "System CPU, RAM and engine RSS from each result, plus qdisc and socket "
+    "counters. Missing counters are shown as —.",
+    "CPU системы, RAM и RSS движка из каждого результата, плюс счётчики qdisc "
+    "и сокетов. Отсутствующие счётчики показаны как —.",
+)
+_msg("section.04.title", "16-core reference", "Референс на 16 ядрах")
+_msg(
+    "section.04.lede",
+    "The committed charts, kept in their original visual language. Use them to "
+    "compare engines, not to compare a CI runner with this machine.",
+    "Закоммиченные графики в исходной визуальной подаче. Сравнивайте движки, а "
+    "не CI-раннер с этой машиной.",
+)
+_msg("section.05.title", "Caveats", "Оговорки")
+_msg(
+    "section.05.lede",
+    "Read these before quoting any number. The bench answers “which engine is "
+    "faster under identical conditions”, not “how fast will my link be”.",
+    "Прочитайте до того, как цитировать любую цифру. Бенч отвечает на вопрос "
+    "«какой движок быстрее в одинаковых условиях», а не «насколько быстрым "
+    "будет мой канал».",
+)
+
+# phases
+_msg("phase.down1", "↓1 download", "↓1 скачивание")
+_msg("phase.down8", "↓8 download", "↓8 скачивание")
+_msg("phase.up1", "↑1 upload", "↑1 отдача")
+_msg("phase.ttfb", "TTFB", "TTFB")
+_msg("phase.conns", "Connection rate", "Скорость соединений")
+
+# suffixes for generated scenario names
+_msg("suffix.release", " (release)", " (релиз)")
+_msg("suffix.stock", " (stock)", " (релиз)")
+_msg("suffix.xhttp", " (XHTTP)", " (XHTTP)")
+
+# run strip, validity, cards
+_msg("run.chip.scenarios", "{word}", "{word}")
+_msg("run.chip.results", "{word}", "{word}")
+_msg("run.chip.date", "{date} run date", "{date} — дата прогона")
+_msg("run.chip.vcpu", "{n} vCPU", "{n} vCPU")
+_msg("run.mixed_pair", "mixed pair", "смешанная пара")
+_msg("validity.unknown_none",
+     "No validity flag was recorded in these result files (older format).",
+     "В этих файлах нет флага валидности (старый формат).")
+_msg("validity.unknown_partial",
+     "Only {known} of {total} result files carry a validity flag (older format).",
+     "Флаг валидности записан не везде: {known} из {total} (старый формат).")
+_msg("validity.valid_one", "Result marked valid.", "Результат помечен как валидный.")
+_msg("validity.valid_all",
+     "All {n} {files} are marked valid.",
+     "Все файлы ({n}) помечены как валидные.")
+_msg("validity.badge.valid", "valid", "валиден")
+_msg("validity.badge.invalid", "invalid", "невалиден")
+_msg("validity.badge.unchecked", "unchecked", "не проверено")
+_msg("validity.unchecked_aria", "Validity not recorded", "Валидность не записана")
+_msg("validity.invalid_title", "Invalid: {reasons}", "Невалидно: {reasons}")
+_msg("validity.flagged", "Flagged invalid", "Помечено невалидным")
+_msg("validity.count",
+     "{flagged} of {total} result files flagged",
+     "Помечено {flagged} из {total} файлов результатов")
+_msg("validity.notice_title", "Flagged invalid.", "Помечено невалидным.")
+_msg("validity.notice_body",
+     "The numbers are still shown and marked; validity is a warning, not a filter.",
+     "Цифры всё равно показаны и помечены; валидность — предупреждение, а не фильтр.")
+_msg("validity.no_reason", "No reason recorded.", "Причина не записана.")
+_msg("profile.dash", "profile —", "профиль —")
+_msg("profile.netem_only", "netem only", "только netem")
+_msg("link.delay_one_way", "{values} ms one-way", "{values} мс в одну сторону")
+_msg("link.per_rtt", " (per RTT)", " (на полный RTT)")
+_msg("link.jitter", " · jitter {values} ms", " · джиттер {values} мс")
+_msg("link.no_cap", "no cap", "без лимита")
+_msg("link.card_title", "Link profile", "Профиль канала")
+_msg("link.kv.profile", "Profile", "Профиль")
+_msg("link.kv.delay", "Delay", "Задержка")
+_msg("link.kv.loss", "Loss", "Потери")
+_msg("link.kv.rate", "Rate cap", "Лимит полосы")
+_msg("link.kv.mtu", "MTU", "MTU")
+_msg("link.kv.gso", "GSO", "GSO")
+_msg("link.kv.ports", "Ports", "Порты")
+_msg("link.kv.queue", "Queue limit", "Лимит очереди")
+_msg("link.delay_off", "off (RTT ≈ 0)", "выключена (RTT ≈ 0)")
+_msg("link.delay_each_way", "{one} ms each way (≈ {rtt} ms RTT)",
+     "{one} ms в каждую сторону (≈ {rtt} ms RTT)")
+_msg("link.legacy_note",
+     'Older result: no <code>link</code> profile was recorded, so this card '
+     'falls back to the <code>netem</code> values.',
+     'Старый результат: профиль <code>link</code> не записан, поэтому '
+     'карточка использует значения <code>netem</code>.')
+_msg("card.hardware", "Hardware", "Железо")
+_msg("card.source", "Source", "Источник")
+_msg("card.binaries", "Binaries", "Бинарники")
+_msg("kv.cpu", "CPU", "CPU")
+_msg("kv.nproc", "nproc", "nproc")
+_msg("kv.kernel", "Kernel", "Ядро")
+_msg("kv.memory", "Memory", "Память")
+_msg("mem.free_total", "{free} free / {total} total", "{free} свободно / {total} всего")
+_msg("mem.free_title", "{free} KiB free / {total} KiB total",
+     "{free} KiB свободно / {total} KiB всего")
+_msg("git.commit", "Commit", "Коммит")
+_msg("git.branch", "Branch", "Ветка")
+_msg("git.run_window", "Run window", "Окно прогона")
+_msg("git.newest", "Newest result", "Свежий результат")
+_msg("git.dirty", "dirty tree", "грязное дерево")
+_msg("git.clean", "clean tree", "чистое дерево")
+_msg("binaries.empty", "No binary metadata was recorded for this run.",
+     "Для этого прогона не записаны метаданные бинарников.")
+_msg("binaries.aria", "Binaries table", "Таблица бинарников")
+_msg("binaries.caption", "Binaries recorded in the newest result file",
+     "Бинарники из свежего файла результата")
+_msg("binaries.col.binary", "Binary", "Бинарник")
+_msg("binaries.col.version", "Version", "Версия")
+_msg("binaries.col.sha", "SHA-256 (short)", "SHA-256 (кратко)")
+_msg("binaries.label.version", "Version", "Версия")
+_msg("binaries.label.sha", "SHA-256", "SHA-256")
+_msg("input.unbihex_server", "Unbihex server", "Unbihex (сервер)")
+_msg("input.unbihex_cli", "Unbihex CLI", "Unbihex CLI")
+
+# run callout
+_msg("run.callout.aria", "Comparability warning", "Предупреждение о сравнимости")
+_msg("run.callout.title", "Only compare numbers within one run.",
+     "Сравнивайте цифры только внутри одного прогона.")
+_msg("run.callout.first",
+     "This run recorded {n} vCPU. Published CI runs use 4-vCPU GitHub-hosted "
+     "runners, and the committed reference used 16 cores.",
+     "Этот прогон записал {n} vCPU. Публичные прогоны CI идут на "
+     "раннерах GitHub с 4 vCPU, референс снимался на 16 ядрах.")
+_msg("run.callout.first_default",
+     "GitHub-hosted runners have 4 vCPU; the committed reference below used 16 cores.",
+     "У раннеров GitHub 4 vCPU; референс ниже снимался на 16 ядрах.")
+_msg("run.callout.body",
+     "Absolute MB/s depends on the machine, the kernel and the socket buffers. "
+     "These are protocol-layer numbers on a recorded loopback path, not a "
+     "prediction for a real network link.",
+     "Абсолютный MB/s зависит от машины, ядра и буферов сокетов. Это цифры "
+     "уровня протокола на записанном loopback-пути, а не прогноз для реального "
+     "канала.")
+
+# run sources details
+_msg("sources.summary", "Result files behind this run",
+     "Файлы результатов этого прогона")
+_msg("sources.scanned", "Scanned {n} JSON {files} in this directory.",
+     "Просканировано JSON-файлов: {n}.")
+_msg("sources.charted",
+     "Charted {n} {result_files} from the latest contiguous run ({m} {throughput_files}).",
+     "В графиках: {n} {result_files} из последней непрерывной серии "
+     "({m} {throughput_files}).")
+_msg("sources.superseded",
+     "{n} earlier {files} in the same run were superseded by a newer file for "
+     "the same scenario and RTT.",
+     "Более ранние файлы в том же прогоне ({n}) перекрыты новыми для того же "
+     "сценария и RTT.")
+_msg("sources.older",
+     "{n} {result_files} from earlier runs were not charted.",
+     "Не попали в графики: {n} {result_files} из прошлых прогонов.")
+_msg("sources.ignored",
+     "{n} {files} without throughput metrics (for example DNS runs) were ignored.",
+     "Пропущено файлов без метрик throughput (например, DNS): {n}.")
+_msg("sources.invalid",
+     "{n} {files} could not be read and were skipped: {names}.",
+     "Не удалось прочитать файлов: {n}; пропущены: {names}.")
+_msg("sources.unread", "{n} {files} could not be read.",
+     "Не удалось прочитать файлов: {n}.")
+_msg("sources.raw",
+     'Raw JSON is committed to <a href="{results_url}">ci-results/</a> and '
+     'uploaded as the <code>ci-results</code> artifact from the '
+     '<a href="{actions_url}">bench workflow</a>.',
+     'Исходный JSON лежит в <a href="{results_url}">ci-results/</a> и '
+     'загружается артефактом <code>ci-results</code> из '
+     '<a href="{actions_url}">бенч-воркфлоу</a>.')
+
+# empty run state
+_msg("empty.no_ci", "No CI results yet", "Результатов CI пока нет")
+_msg("empty.title", "This build has no measured run to chart.",
+     "В этой сборке нет измеренного прогона для графиков.")
+_msg("empty.missing",
+     "The results directory <code>ci-results/</code> is not present in this "
+     "build. The page falls back to the committed 16-core reference below.",
+     "Каталога <code>ci-results/</code> в этой сборке нет. Страница "
+     "переходит к закоммиченному референсу на 16 ядрах ниже.")
+_msg("empty.empty_dir",
+     "The results directory is empty. The workflow writes one JSON file per "
+     "measured scenario × RTT; until it runs, the committed reference below is "
+     "the only data on this page.",
+     "Каталог результатов пуст. Воркфлоу пишет один JSON на сценарий × RTT; "
+     "пока он не отработал, единственные данные на странице — референс ниже.")
+_msg("empty.not_directory", "The results path is not a directory.",
+     "Путь результатов — не каталог.")
+_msg("empty.no_bench",
+     "The results directory has {n} JSON {files}, but none contain throughput "
+     "metrics. The page falls back to the committed reference below.",
+     "В каталоге результатов {n} JSON-файлов, но метрик throughput в них нет. "
+     "Страница переходит к закоммиченному референсу ниже.")
+_msg("empty.body",
+     "The page still builds, and the reference charts and caveats below still "
+     "apply. To preview a local directory:",
+     "Страница всё равно собирается; референсные графики и оговорки ниже "
+     "действуют. Локальный каталог можно посмотреть так:")
+
+# results charts and tables
+_msg("results.nothing_tag", "Nothing to chart", "Нечего строить")
+_msg("results.nothing_title", "No measured scenarios in this build.",
+     "В этой сборке нет измеренных сценариев.")
+_msg("results.nothing_body",
+     "The generator found no JSON files with throughput, TTFB or connection "
+     "metrics. Reference charts and caveats are unaffected.",
+     "Генератор не нашёл JSON с метриками throughput, TTFB или соединений. "
+     "Референсные графики и оговорки не затронуты.")
+_msg("results.sample",
+     "Latest file per scenario × RTT. A dash means the metric is absent from the JSON.",
+     "Последний файл на сценарий × RTT. Прочерк — метрики нет в JSON.")
+_msg("results.table_hint", "Tables below scroll sideways.",
+     "Таблицы ниже прокручиваются вбок.")
+_msg("results.missing_rtt0",
+     "No RTT ≈ 0 throughput results in this run. The 50 ms section below is shown instead.",
+     "В этом прогоне нет throughput при RTT ≈ 0. Ниже показан раздел 50 ms.")
+_msg("results.missing_rtt50",
+     "No 50 ms results in this run. The CI probe skips RTT 50 ms when netem is "
+     "unavailable on the runner.",
+     "В этом прогоне нет результатов 50 ms. CI-проба пропускает RTT 50 ms, "
+     "если netem недоступен на раннере.")
+_msg("results.missing_ttfb", "No TTFB metric at RTT ≈ 0 in this run.",
+     "В этом прогоне нет метрики TTFB при RTT ≈ 0.")
+_msg("results.missing_conns", "No connection-rate metric at RTT ≈ 0 in this run.",
+     "В этом прогоне нет метрики скорости соединений при RTT ≈ 0.")
+
+_msg("chart.throughput.title", "Throughput at RTT ≈ 0",
+     "Пропускная способность при RTT ≈ 0")
+_msg("chart.throughput.sub", "Median MB/s through SOCKS · higher is better",
+     "Медиана MB/s через SOCKS · больше — лучше")
+_msg("chart.throughput.foot",
+     "Medians over the recorded runs. MB/s as printed by the bench (bytes/1e6).",
+     "Медианы по записанным прогонам. MB/s как печатает бенч (bytes/1e6).")
+_msg("chart.rtt.title", "Single-stream download: RTT ≈ 0 vs 50 ms",
+     "Скачивание в один поток: RTT ≈ 0 и 50 ms")
+_msg("chart.rtt.sub", "Median MB/s · higher is better",
+     "Медиана MB/s · больше — лучше")
+_msg("chart.rtt.foot",
+     "At 8 streams and 50 ms, netem itself is the bottleneck, so only ↓1 is "
+     "compared at 50 ms.",
+     "При 8 потоках и 50 ms узкое место — сам netem, поэтому на 50 ms "
+     "сравнивается только ↓1.")
+_msg("chart.ttfb.title", "Time to first byte", "Время до первого байта")
+_msg("chart.ttfb.sub", "ms · bar = median, mark = p95 · lower is better",
+     "ms · столбец — медиана, метка — p95 · меньше — лучше")
+_msg("chart.ttfb.foot",
+     "TTFB covers TCP to SOCKS, CONNECT, tunnel setup and one byte from the "
+     "target. The mark is the p95 over the recorded runs.",
+     "TTFB покрывает TCP до SOCKS, CONNECT, установку туннеля и один байт от "
+     "цели. Метка — p95 по записанным прогонам.")
+_msg("chart.conns.title", "Connection rate", "Скорость соединений")
+_msg("chart.conns.sub", "conn/s · higher is better", "conn/s · больше — лучше")
+_msg("chart.conns.foot",
+     "Connections per second with four requests in flight, over the recorded runs.",
+     "Соединений в секунду при четырёх запросах в полёте, по записанным прогонам.")
+_msg("legend.aria", "Series", "Серии")
+
+_msg("table.engine", "Engine / scenario", "Движок / сценарий")
+_msg("table.throughput.aria", "Throughput table", "Таблица пропускной способности")
+_msg("table.throughput.caption",
+     "Medians at RTT ≈ 0. MB/s as printed by the bench (bytes/1e6); min–max in "
+     "smaller type where recorded.",
+     "Медианы при RTT ≈ 0. MB/s как печатает бенч (bytes/1e6); мин–макс "
+     "мельче, где записан.")
+_msg("table.rtt.aria", "Single-stream download table",
+     "Таблица скачивания в один поток")
+_msg("table.rtt.caption",
+     "Single-stream download at RTT ≈ 0 and at 50 ms. MB/s as printed by the "
+     "bench (bytes/1e6); min–max in smaller type where recorded.",
+     "Скачивание в один поток при RTT ≈ 0 и 50 ms. MB/s как печатает бенч "
+     "(bytes/1e6); мин–макс мельче, где записан.")
+_msg("table.ttfb.aria", "Time to first byte table",
+     "Таблица времени до первого байта")
+_msg("table.ttfb.caption",
+     "Time to first byte at RTT ≈ 0: median, p95, and the number of "
+     "connections with errors.",
+     "Время до первого байта при RTT ≈ 0: медиана, p95 и число соединений с "
+     "ошибками.")
+_msg("table.ttfb.median", "Median ms", "Медиана, ms")
+_msg("table.ttfb.p95", "p95 ms", "p95 ms")
+_msg("table.connections", "Connections", "Соединения")
+_msg("table.errors", "Errors", "Ошибки")
+_msg("table.conns.aria", "Connection rate table", "Таблица скорости соединений")
+_msg("table.conns.caption",
+     "Connection rate at RTT ≈ 0: connections per second, total connections, "
+     "requests in flight, and errors.",
+     "Скорость соединений при RTT ≈ 0: соединений в секунду, всего "
+     "соединений, запросов в полёте и ошибок.")
+_msg("table.conns.rate", "Conn/s", "Conn/s")
+_msg("table.conns.inflight", "In flight", "В полёте")
+
+# evidence
+_msg("evidence.tooltip",
+     "Drops include simulated loss and queue overflow. Drop rate = dropped / "
+     "packets. Bottleneck threshold = max(3 x configured loss, 0.5%)",
+     "Дропы включают смоделированные потери и переполнение очереди. Доля "
+     "дропов = dropped / packets. Порог узкого места = max(3 × настроенные "
+     "потери, 0.5%)")
+_msg("evidence.netem_short", "netem bottleneck", "узкое место netem")
+_msg("evidence.netem_long", "netem was the bottleneck", "узким местом был netem")
+_msg("evidence.line",
+     "qdisc {drops} drops · {rate} · {overlimits} overlimits · {retrans} retrans",
+     "qdisc: дропы {drops} · {rate} · overlimits {overlimits} · retrans {retrans}")
+_msg("evidence.line_empty", "qdisc — drops · — overlimits · — retrans",
+     "qdisc: дропы — · overlimits — · retrans —")
+_msg("evidence.loss_configured", "loss {rate}% as configured",
+     "потери {rate}% по конфигу")
+_msg("evidence.reason.overlimits", "overlimits {n} > 0", "overlimits {n} > 0")
+_msg("evidence.reason.drop", "drop rate {rate}% > {threshold}% threshold{suffix}",
+     "доля дропов {rate}% > порога {threshold}%{suffix}")
+_msg("evidence.reason.drop_unknown", " (configured loss unknown)",
+     " (настроенные потери неизвестны)")
+_msg("evidence.reason.backlog", "backlog {n} {unit}>= 50% of limit {limit}",
+     "backlog {n} {unit}>= 50% лимита {limit}")
+
+# cost section
+_msg("cost.missing", "No cost or evidence data in this build.",
+     "В этой сборке нет данных о ресурсах и evidence.")
+_msg("cost.table_hint", "Cost and evidence tables scroll sideways.",
+     "Таблицы ресурсов и evidence прокручиваются вбок.")
+_msg("cost.callout.aria", "Shaper warning", "Предупреждение шейпера")
+_msg("cost.callout.title", "netem was the bottleneck.", "Узким местом был netem.")
+_msg("cost.callout.intro", "qdisc evidence exceeded the bottleneck rule for:",
+     "Счётчики qdisc превысили порог узкого места:")
+_msg("cost.callout.item", "{drops} drops · {rate}; {reasons}",
+     "дропы: {drops} · {rate}; {reasons}")
+_msg("cost.callout.fallback", "threshold exceeded", "порог превышен")
+_msg("cost.callout.more", "+{n} more phase(s)", "ещё фаз: {n}")
+_msg("cost.callout.body",
+     "Drops alone are not a bottleneck: the qdisc counter includes the "
+     "configured simulated loss. This callout requires overlimits, a drop rate "
+     "above the threshold, or a backlog at half the parsed queue limit.",
+     "Дропы сами по себе — не узкое место: счётчик qdisc включает настроенные "
+     "потери. Вызов срабатывает при overlimits, доле дропов выше порога или "
+     "backlog на половине разобранного лимита очереди.")
+_msg("cost.predate",
+     "These result files predate the <code>sys</code> and <code>evidence</code> "
+     "fields. The cost and evidence panels below show — for the missing counters.",
+     "Эти файлы старше полей <code>sys</code> и <code>evidence</code>. Панели "
+     "ниже показывают — для отсутствующих счётчиков.")
+_msg("cost.cpu.aria", "CPU cost table", "Таблица затрат CPU")
+_msg("cost.cpu.none",
+     "No <code>sys.cpu</code> counters were recorded for this scenario (older "
+     "result format).",
+     "Для этого сценария нет счётчиков <code>sys.cpu</code> (старый формат).")
+_msg("cost.cpu.caption",
+     "System CPU counters. Busy cores = busy_ms / 1000 / wall_s. CPU % of wall "
+     "= busy_ms / (wall_s × 1000 × nproc) × 100, computed only when wall time "
+     "can be derived from a recorded transfer total or connection count.",
+     "Счётчики CPU системы. Занятых ядер = busy_ms / 1000 / wall_s. CPU % "
+     "времени = busy_ms / (wall_s × 1000 × nproc) × 100; считается только "
+     "когда время можно вывести из записанного объёма передачи или числа "
+     "соединений.")
+_msg("cost.col.phase", "Phase", "Фаза")
+_msg("cost.col.runs", "Runs", "Прогоны")
+_msg("cost.col.busy", "Busy ms", "Занято, ms")
+_msg("cost.col.wall", "Wall s", "Время, s")
+_msg("cost.col.cores", "Busy cores", "Занятых ядер")
+_msg("cost.col.cpu_pct", "CPU % wall", "CPU, % времени")
+_msg("cost.col.user", "User ms", "User, ms")
+_msg("cost.col.system", "System ms", "System, ms")
+_msg("cost.col.softirq", "Softirq ms", "Softirq, ms")
+_msg("cost.col.irq", "IRQ ms", "IRQ, ms")
+_msg("cost.evidence.aria", "qdisc and socket evidence table",
+     "Таблица счётчиков qdisc и сокетов")
+_msg("cost.evidence.none",
+     "No qdisc or socket evidence was recorded for this scenario (older result "
+     "format).",
+     "Для этого сценария нет счётчиков qdisc или сокетов (старый формат).")
+_msg("cost.evidence.caption",
+     "qdisc and socket counters as recorded per phase. Drop rate = dropped / "
+     "packets and includes simulated loss. Bottleneck when overlimits > 0, "
+     "drop rate > max(3 × configured loss, 0.5%), or backlog ≥ 50% of the "
+     "parsed queue limit. When configured loss is unknown, 0.5% is used.",
+     "Счётчики qdisc и сокетов по фазам. Доля дропов = dropped / packets, "
+     "включая смоделированные потери. Узкое место при overlimits > 0, доле "
+     "дропов > max(3 × настроенные потери, 0.5%) или backlog ≥ 50% "
+     "разобранного лимита очереди. Если настроенные потери неизвестны, "
+     "берётся 0.5%.")
+_msg("cost.col.qdisc_drops", "qdisc drops", "Дропы qdisc")
+_msg("cost.col.drop_rate", "Drop rate", "Доля дропов")
+_msg("cost.col.overlimits", "Overlimits", "Overlimits")
+_msg("cost.col.requeues", "Requeues", "Requeues")
+_msg("cost.col.backlog", "Backlog pkt", "Backlog, pkt")
+_msg("cost.col.retrans", "Sock retrans", "Ретрансмиты")
+_msg("cost.col.sockets", "Sockets", "Сокеты")
+_msg("cost.raw.summary", "Raw qdisc / socket counters (truncated)",
+     "Сырые счётчики qdisc / сокетов (обрезано)")
+_msg("cost.ram.chip", "RAM <strong>{free}</strong> {source} / {total}",
+     "RAM <strong>{free}</strong> {source} / {total}")
+_msg("cost.ram.empty", "RAM <strong>—</strong>", "RAM <strong>—</strong>")
+_msg("cost.ram.machine", "machine start", "на старте машины")
+_msg("cost.ram.free", "free min", "минимум свободно")
+_msg("cost.rss.chip",
+     "RSS peak · server <strong>{server}</strong> · client <strong>{client}</strong>",
+     "RSS пик · сервер <strong>{server}</strong> · клиент <strong>{client}</strong>")
+_msg("cost.rss.empty", "RSS peak <strong>—</strong>", "RSS пик <strong>—</strong>")
+_msg("cost.h4.cpu", "CPU cost", "Затраты CPU")
+_msg("cost.h4.evidence", "qdisc / socket evidence", "qdisc / сокеты")
+_msg("cost.loss_note",
+     "Configured loss is not recorded for at least one result; the drop-rate "
+     "comparison uses the 0.5% fallback threshold.",
+     "Настроенные потери записаны не для всех результатов; сравнение доли "
+     "дропов использует запасной порог 0.5%.")
+
+# reference section
+_msg("ref.callout.aria", "Reference hardware note", "Замечание о референсном железе")
+_msg("ref.callout.title", "16-core reference, not a CI runner.",
+     "Референс на 16 ядрах, а не CI-раннер.")
+_msg("ref.callout.body",
+     "These are the four images committed in <code>charts/</code> and linked "
+     "from both READMEs. They were taken with the old loopback profile: MTU "
+     "65536, no loss, no rate cap. The values are duplicated in "
+     "<code>charts/data.json</code> because <code>results/</code> is not committed.",
+     "Это четыре изображения из <code>charts/</code>, на них ссылаются оба "
+     "README. Сняты на старом loopback-профиле: MTU 65536, без потерь и без "
+     "лимита полосы. Значения продублированы в <code>charts/data.json</code>, "
+     "потому что <code>results/</code> не коммитится.")
+_msg("ref.meta.release", "Release", "Релиз")
+_msg("ref.meta.base", "Base", "База")
+_msg("ref.meta.date", "Date", "Дата")
+_msg("ref.meta.machine", "Machine", "Машина")
+_msg("ref.meta.path", "Path", "Путь")
+_msg("ref.meta.rtt", "RTT", "RTT")
+_msg("ref.meta.profile", "Profile", "Профиль")
+_msg("ref.meta.profile_value", "loopback · MTU 65536 · no loss",
+     "loopback · MTU 65536 · без потерь")
+_msg("ref.value.cores", "{n} cores", "{n} ядер")
+_msg("ref.value.rtt_method", "netem on the tunnel port only",
+     "netem только на порт туннеля")
+_msg("ref.story.falls", "At 50 ms {label} falls from {base} to {shaped} MB/s",
+     "На 50 ms {label} падает с {base} до {shaped} MB/s")
+_msg("ref.story.drop", ", a {ratio}× drop", " — в {ratio} раз")
+_msg("ref.story.holds_both", ", while Xray holds {xray} and sing-box {singbox} MB/s",
+     ", тогда как Xray держит {xray}, а sing-box — {singbox} MB/s")
+_msg("ref.story.holds_xray", ", while Xray holds {xray} MB/s",
+     ", тогда как Xray держит {xray} MB/s")
+_msg("ref.story.holds_singbox", ", while sing-box holds {singbox} MB/s",
+     ", тогда как sing-box держит {singbox} MB/s")
+_msg("ref.story.rank",
+     "On the RTT ≈ 0 run {label} has the lowest connection rate ({conns} conn/s) "
+     "and the highest TTFB p95 ({ttfb} ms).",
+     "На прогоне с RTT ≈ 0 у {label} меньше всего соединений в секунду "
+     "({conns} conn/s) и самый высокий TTFB p95 ({ttfb} ms).")
+_msg("ref.story.neutral",
+     "On the RTT ≈ 0 run {label} records {conns} conn/s and {ttfb} ms TTFB p95.",
+     "На прогоне с RTT ≈ 0 {label} показывает {conns} conn/s и TTFB p95 "
+     "{ttfb} ms.")
+_msg("ref.meta_missing",
+     "Reference metadata (<code>charts/data.json</code>) is unavailable in this build.",
+     "Метаданные референса (<code>charts/data.json</code>) в этой сборке "
+     "недоступны.")
+_msg("ref.no_svg", "No reference SVG could be copied from the charts directory.",
+     "Из каталога графиков не удалось скопировать ни одного SVG.")
+_msg("ref.sources.summary", "Source files behind the reference medians",
+     "Файлы результатов, на которых построены медианы")
+_msg("ref.sources.note",
+     "These local result files are not committed to the repository; the "
+     "medians above are copied into <code>charts/data.json</code>.",
+     "Эти локальные файлы не закоммичены; медианы выше скопированы в "
+     "<code>charts/data.json</code>.")
+_msg("ref.charts_fallback",
+     "Russian chart labels are unavailable in this build; the English charts are shown.",
+     "Русские подписи к графикам в этой сборке недоступны; показаны английские.")
+_msg("ref.fig.rtt0.caption",
+     "Median MB/s for ↓1, ↓8 and ↑1 across the three engines.",
+     "Медиана MB/s для ↓1, ↓8 и ↑1 по трём движкам.")
+_msg("ref.fig.rtt0.alt",
+     "Grouped bar chart of median throughput in MB/s at RTT close to zero. "
+     "sing-box leads single- and eight-stream download and upload; Unbihex "
+     "0.2.2 sits between Xray and sing-box. Three engines are labelled.",
+     "Сгруппированная столбчатая диаграмма медианной пропускной способности в "
+     "MB/s при RTT около нуля. sing-box лидирует в скачивании и отдаче на "
+     "одном и восьми потоках; Unbihex 0.2.2 находится между Xray и sing-box. "
+     "Подписаны три движка.")
+_msg("ref.fig.rtt50.caption",
+     "↓1 at RTT ≈ 0 and 50 ms; Unbihex 0.2.2 collapses at 50 ms.",
+     "↓1 при RTT ≈ 0 и 50 ms; Unbihex 0.2.2 обваливается на 50 ms.")
+_msg("ref.fig.rtt50.alt",
+     "Grouped bar chart of single-stream download throughput at RTT close to "
+     "zero and at 50 ms. Unbihex 0.2.2 drops to 5.8 MB/s at 50 ms, while Xray "
+     "holds 88.6 and sing-box 103.6 MB/s.",
+     "Сгруппированная столбчатая диаграмма скачивания в один поток при RTT "
+     "около нуля и 50 ms. На 50 ms Unbihex 0.2.2 падает до 5.8 MB/s, Xray "
+     "держит 88.6, sing-box — 103.6 MB/s.")
+_msg("ref.fig.connections.caption",
+     "TTFB median with p95 whiskers (left) and connection rate (right).",
+     "Медиана TTFB с усами p95 (слева) и скорость соединений (справа).")
+_msg("ref.fig.connections.alt",
+     "Two-panel chart at RTT close to zero. Left: time to first byte, median "
+     "bar with p95 whisker, lower is better. Right: connections per second, "
+     "higher is better. Unbihex 0.2.2 has the highest TTFB p95 and the lowest "
+     "connection rate.",
+     "Двухпанельная диаграмма при RTT около нуля. Слева: время до первого "
+     "байта, столбец — медиана, ус — p95, меньше — лучше. Справа: соединений в "
+     "секунду, больше — лучше. У Unbihex 0.2.2 самый высокий TTFB p95 и самая "
+     "низкая скорость соединений.")
+_msg("ref.fig.topology.caption", "Bench path; netem touches only the tunnel port.",
+     "Путь бенча; netem действует только на порт туннеля.")
+_msg("ref.fig.topology.alt",
+     "Diagram of the bench path: bench client to engine client over SOCKS, "
+     "engine client to engine server over REALITY or XHTTP with netem adding "
+     "delay only on the tunnel port, then engine server to the sink. SOCKS and "
+     "the path to the sink carry no added delay.",
+     "Схема пути бенча: клиент бенча → клиент движка по SOCKS, клиент → сервер "
+     "движка по REALITY или XHTTP, netem добавляет задержку только на порт "
+     "туннеля, затем сервер → sink. SOCKS и путь до sink идут без добавленной "
+     "задержки.")
+
+_msg("run.unknown_suffix", "Their numbers are still shown.",
+     "Их цифры всё равно показаны.")
+_msg("run.missing_link",
+     "{n} selected {files} {verb} no <code>link</code> profile; the header "
+     "shows the newest recorded profile.",
+     "У выбранных файлов ({n}) нет профиля <code>link</code>; в шапке — самый "
+     "свежий записанный профиль.")
+_msg("run.multiple_profiles",
+     "Selected result files use more than one link profile ({profiles}); the "
+     "header shows the newest recorded profile.",
+     "Выбранные файлы используют несколько профилей канала ({profiles}); в "
+     "шапке — самый свежий записанный профиль.")
+
+# caveats
+_msg("caveat.1.title", "A shaped path, still not a NIC",
+     "Шейпер, но всё ещё не NIC")
+_msg("caveat.1.body",
+     "Current runs can emulate a WAN-like link: MTU 1500, offloads off and "
+     "0.1% loss. The reference charts used the old loopback profile (MTU 65536, "
+     "no loss). The packets still traverse loopback, not a real NIC, driver or "
+     "ISP path.",
+     "Текущие прогоны умеют имитировать WAN-канал: MTU 1500, offloads выключены, "
+     "потери 0.1%. Референсные графики снимались на старом loopback-профиле "
+     "(MTU 65536, без потерь). Пакеты по-прежнему идут через loopback, а не "
+     "через реальный NIC, драйвер или путь провайдера.")
+_msg("caveat.2.title", "No bandwidth cap by default",
+     "По умолчанию без ограничения полосы")
+_msg("caveat.2.body",
+     "link.rate_mbit = 0 means no cap. Delay, jitter, loss, MTU and offload "
+     "settings are shaped; a default run is not a bandwidth-limited link.",
+     "link.rate_mbit = 0 означает отсутствие лимита. Шейпинг задаёт задержку, "
+     "джиттер, потери, MTU и offload; обычный прогон — не канал с ограниченной "
+     "полосой.")
+_msg("caveat.3.title", "50 ms shaper limit at 8 streams",
+     "Предел шейпера: 50 ms, 8 потоков")
+_msg("caveat.3.body",
+     "At 8 streams and 50 ms the shaper itself can be the bottleneck. qdisc "
+     "drops or overlimits are recorded; when they are above zero the cell "
+     "describes netem, not the engine.",
+     "При 8 потоках и 50 ms узким местом может стать сам шейпер. Дропы и "
+     "overlimits qdisc записываются; если они больше нуля, ячейка описывает "
+     "netem, а не движок.")
+_msg("caveat.4.title", "Evidence is a host-side sample",
+     "Evidence — выборка со стороны хоста")
+_msg("caveat.4.body",
+     "qdisc and socket counters come from this host's kernel. They can prove "
+     "that the shaper limited a cell; they do not turn loopback into a real "
+     "network path.",
+     "Счётчики qdisc и сокетов берутся из ядра этого хоста. Они доказывают, что "
+     "шейпер ограничил ячейку, но не превращают loopback в реальный сетевой "
+     "путь.")
+_msg("caveat.5.title", "No TUN mode", "Без TUN-режима")
+_msg("caveat.5.body",
+     "Unbihex's main mode is not measured here. TUN changes are covered by "
+     "unit tests, not by this bench.",
+     "Основной режим Unbihex здесь не измеряется. Изменения в TUN покрыты "
+     "юнит-тестами, а не этим бенчем.")
+_msg("caveat.6.title", "Competitors out of the box",
+     "Конкуренты «из коробки»")
+_msg("caveat.6.body",
+     "The Go binaries run without sockopt tuning; Unbihex runs with its "
+     "defaults. This compares what ships, not what is possible after tuning.",
+     "Go-бинарники запускаются без sockopt-тюнинга, Unbihex — со своими "
+     "настройками по умолчанию. Сравнивается то, что поставляется, а не то, "
+     "что возможно после тюнинга.")
+_msg("caveat.7.title", "CPU time is understated", "CPU-время занижено")
+_msg("caveat.7.body",
+     "System CPU busy time is recorded, but loopback remains syscall-heavy. "
+     "CPU differences are smaller here than they would be on a real link.",
+     "Время занятости system CPU записывается, но loopback остаётся насыщенным "
+     "системными вызовами. Разница по CPU здесь меньше, чем была бы на реальном "
+     "канале.")
+_msg("caveat.8.title", "CI hardware is not the reference",
+     "CI-железо — не референс")
+_msg("caveat.8.body",
+     "GitHub-hosted runners have 4 vCPU; the reference used 16 cores. Numbers "
+     "are only comparable within one run, never across machines.",
+     "У раннеров GitHub 4 vCPU, референс снимался на 16 ядрах. Цифры "
+     "сравнимы только внутри одного прогона, никогда — между машинами.")
+_msg("caveat.9.title", "REALITY dest is local", "REALITY dest локальный")
+_msg("caveat.9.body",
+     "The TLS site behind REALITY is on this machine. Probing a real remote "
+     "site costs more than this bench shows.",
+     "TLS-сайт за REALITY находится на этой же машине. Проверка реального "
+     "удалённого сайта стоит дороже, чем показывает этот бенч.")
+
+# footer
+_msg("footer.line1",
+     "<strong>xray-bench</strong> — a reproducible proxy-engine bench. Measured "
+     "on loopback paths, published from JSON.",
+     "<strong>xray-bench</strong> — воспроизводимый бенч прокси-движков. "
+     "Измерения на loopback-путях, публикация из JSON.")
+_msg("footer.built",
+     'Built by <code>site/build.py</code>. One inline script routes the '
+     'language; no tracking, no external fonts or assets.',
+     'Собрано <code>site/build.py</code>. Язык выбирает один встроенный скрипт; '
+     'без трекинга, внешних шрифтов и ресурсов.')
+_msg("footer.note",
+     "Absolute throughput is a protocol-layer measurement on a shaped loopback "
+     "path, not a speed test of a real connection.",
+     "Абсолютный throughput — измерение на уровне протокола через шейпованный "
+     "loopback, а не тест скорости реального соединения.")
 
 # A CI invocation runs its scenarios within a short window.  Results are
 # committed and accumulate in ci-results/, so only the newest contiguous run is
@@ -401,14 +1169,22 @@ def version_of(kind: str, role: str, inputs: dict) -> str:
     return match.group(1) if match else ""
 
 
+def input_name(key: str) -> str:
+    if key == "unbihex-server":
+        return t("input.unbihex_server")
+    if key == "unbihex-cli":
+        return t("input.unbihex_cli")
+    return INPUT_NAMES.get(key, key)
+
+
 def self_suffix(scenario: str, records: dict, engine: str) -> str:
     name = (scenario or "").lower()
     if "xhttp" in name:
-        return " (XHTTP)"
+        return t("suffix.xhttp")
     if engine != "unbihex":
         return ""
     if "release" in name:
-        return " (release)"
+        return t("suffix.release")
     # Older Unbihex A/B result files named the released build "before" or
     # "stock"; both still collapse to the same label.
     labels = {
@@ -419,7 +1195,7 @@ def self_suffix(scenario: str, records: dict, engine: str) -> str:
     if labels & {"pr", "pr #18", "after"}:
         return ""
     if labels & {"stock", "before"}:
-        return " (stock)"
+        return t("suffix.stock")
     # A downloaded release binary carries no per-binary git block.  The CI
     # workflow names the scenario unbihex_release; this also covers a CI run
     # that keeps the unbihex_reality name.
@@ -431,7 +1207,7 @@ def self_suffix(scenario: str, records: dict, engine: str) -> str:
             git.get("dirty") is False
             and git.get("branch") in (None, "", "main", "master")
         ):
-            return " (release)"
+            return t("suffix.release")
     return ""
 
 
@@ -578,10 +1354,11 @@ def validity_info(records) -> dict:
 
 def validity_unknown_text(info: dict) -> str:
     if info["known"] == 0:
-        return "No validity flag was recorded in these result files (older format)."
-    return (
-        f"Only {info['known']} of {info['total']} result files carry a "
-        "validity flag (older format)."
+        return t("validity.unknown_none")
+    return t(
+        "validity.unknown_partial",
+        known=info["known"],
+        total=info["total"],
     )
 
 
@@ -590,37 +1367,51 @@ def validity_badge(records, details: bool = False) -> str:
     status = info["status"]
     if status == "valid":
         title = (
-            "Result marked valid."
+            t("validity.valid_one")
             if info["total"] == 1
-            else f"All {info['total']} result files are marked valid."
+            else t(
+                "validity.valid_all",
+                n=info["total"],
+                files=p(info["total"], "result_files"),
+            )
         )
-        return f'<span class="badge badge-valid" title="{esc(title)}">valid</span>'
+        return (
+            f'<span class="badge badge-valid" title="{esc(title)}">'
+            f"{t('validity.badge.valid')}</span>"
+        )
     if status == "unknown":
         title = validity_unknown_text(info)
         return (
             f'<span class="badge badge-unknown" title="{esc(title)}" '
-            'aria-label="Validity not recorded">unchecked</span>'
+            f'aria-label="{esc(t("validity.unchecked_aria"))}">'
+            f"{t('validity.badge.unchecked')}</span>"
         )
 
-    reasons = info["reasons"] or ["No reason recorded."]
-    title = "Invalid: " + "; ".join(reasons)
+    reasons = info["reasons"] or [t("validity.no_reason")]
+    title = t("validity.invalid_title", reasons="; ".join(reasons))
     if details:
         count = ""
         if info["total"] > 1:
             count = (
-                f'<span class="validity-count">{info["flagged"]} of '
-                f"{info['total']} result files flagged</span>"
+                '<span class="validity-count">'
+                + t(
+                    "validity.count",
+                    flagged=info["flagged"],
+                    total=info["total"],
+                )
+                + "</span>"
             )
         items = "".join(f"<li>{esc(reason)}</li>" for reason in reasons)
         return (
             '<details class="validity">'
-            '<summary class="badge badge-invalid">invalid</summary>'
-            f'<div class="validity-pop"><strong>Flagged invalid</strong>{count}'
-            f"<ul>{items}</ul></div></details>"
+            f'<summary class="badge badge-invalid">{t("validity.badge.invalid")}'
+            "</summary>"
+            f'<div class="validity-pop"><strong>{t("validity.flagged")}</strong>'
+            f"{count}<ul>{items}</ul></div></details>"
         )
     return (
         f'<span class="badge badge-invalid" title="{esc(title)}" '
-        f'aria-label="{esc(title)}">invalid</span>'
+        f'aria-label="{esc(title)}">{t("validity.badge.invalid")}</span>'
     )
 
 
@@ -628,20 +1419,24 @@ def validity_notice(records) -> str:
     info = validity_info(records)
     if info["status"] != "invalid":
         return ""
-    reasons = info["reasons"] or ["No reason recorded."]
+    reasons = info["reasons"] or [t("validity.no_reason")]
     items = "".join(f"<li>{esc(reason)}</li>" for reason in reasons)
     count = ""
     if info["total"] > 1:
         count = (
-            f' <span class="validity-count">{info["flagged"]} of '
-            f"{info['total']} result files flagged</span>"
+            ' <span class="validity-count">'
+            + t(
+                "validity.count",
+                flagged=info["flagged"],
+                total=info["total"],
+            )
+            + "</span>"
         )
     return (
         '<div class="validity-notice">'
-        f"<strong>Flagged invalid.{count}</strong>"
+        f'<strong>{t("validity.notice_title")}{count}</strong>'
         f"<ul>{items}</ul>"
-        "<p>The numbers are still shown and marked; validity is a warning, "
-        "not a filter.</p>"
+        f"<p>{t('validity.notice_body')}</p>"
         "</div>"
     )
 
@@ -659,8 +1454,10 @@ def profile_chip(record: Record) -> str:
         slug = name.lower() if name.lower() in ("wan", "loopback") else "other"
         return f'<span class="profile-chip profile-{slug}">{esc(name)}</span>'
     if link:
-        return '<span class="profile-chip profile-none">profile —</span>'
-    return '<span class="profile-chip profile-none">netem only</span>'
+        return f'<span class="profile-chip profile-none">{t("profile.dash")}</span>'
+    return (
+        f'<span class="profile-chip profile-none">{t("profile.netem_only")}</span>'
+    )
 
 
 def link_delay_summary(links) -> str:
@@ -668,11 +1465,17 @@ def link_delay_summary(links) -> str:
     jitters = sorted({float(link["jitter_ms"]) for link in links if is_num(link.get("jitter_ms"))})
     if not one_ways:
         return "—"
-    text = " / ".join(fmt_num(value, 2) for value in one_ways) + " ms one-way"
+    text = t(
+        "link.delay_one_way",
+        values=" / ".join(fmt_num(value, 2) for value in one_ways),
+    )
     if len(one_ways) > 1:
-        text += " (per RTT)"
+        text += t("link.per_rtt")
     if jitters:
-        text += " · jitter " + " / ".join(fmt_num(value, 2) for value in jitters) + " ms"
+        text += t(
+            "link.jitter",
+            values=" / ".join(fmt_num(value, 2) for value in jitters),
+        )
     return text
 
 
@@ -681,7 +1484,7 @@ def link_rate_text(link: dict) -> str:
     if not is_num(rate):
         return "—"
     if float(rate) == 0:
-        return "no cap"
+        return t("link.no_cap")
     return f"{fmt_num(rate, 1)} Mbit/s"
 
 
@@ -794,13 +1597,17 @@ def evidence_assessment(record: Record, key: str) -> dict:
     reasons = []
     overlimits = numbers["overlimits"]
     if overlimits is not None and overlimits > 0:
-        reasons.append(f"overlimits {fmt_int(overlimits)} > 0")
+        reasons.append(t("evidence.reason.overlimits", n=fmt_int(overlimits)))
     rate = numbers["drop_rate_pct"]
     if rate is not None and rate > threshold + 1e-9:
-        suffix = " (configured loss unknown)" if loss is None else ""
+        suffix = t("evidence.reason.drop_unknown") if loss is None else ""
         reasons.append(
-            f"drop rate {fmt_num(rate, 3)}% > {fmt_num(threshold, 3)}% "
-            f"threshold{suffix}"
+            t(
+                "evidence.reason.drop",
+                rate=fmt_num(rate, 3),
+                threshold=fmt_num(threshold, 3),
+                suffix=suffix,
+            )
         )
     backlog = (
         numbers["backlog_packets"]
@@ -816,7 +1623,12 @@ def evidence_assessment(record: Record, key: str) -> dict:
     ):
         unit = "pkt " if numbers["backlog_packets"] is not None else ""
         reasons.append(
-            f"backlog {fmt_int(backlog)} {unit}>= 50% of limit {fmt_int(limit)}"
+            t(
+                "evidence.reason.backlog",
+                n=fmt_int(backlog),
+                unit=unit,
+                limit=fmt_int(limit),
+            )
         )
     within_loss = (
         not reasons
@@ -834,7 +1646,7 @@ def evidence_assessment(record: Record, key: str) -> dict:
         "loss_unknown": loss is None,
         "within_loss": within_loss,
         "phase_key": key,
-        "phase_label": PHASE_LABELS.get(key, key),
+        "phase_label": phase_label(key),
         "rtt": record.rtt,
     }
 
@@ -843,7 +1655,7 @@ def group_evidence(group: Group) -> dict:
     assessments = []
     has = False
     for record in group.records.values():
-        for key, _ in PHASES:
+        for key in PHASES:
             evidence = phase_evidence(record, key)
             if evidence:
                 has = True
@@ -932,29 +1744,33 @@ def evidence_line(group: Group, compact: bool = False) -> str:
         and (evidence["dropped"] or 0) > 0
     ):
         neutral = (
-            '<span class="evidence-note">loss '
-            f"{fmt_num(evidence['configured_loss'], 3)}% as configured</span>"
+            f'<span class="evidence-note">'
+            f"{t('evidence.loss_configured', rate=fmt_num(evidence['configured_loss'], 3))}"
+            "</span>"
         )
 
     warning = ""
     if evidence["bottleneck"]:
-        label = "netem bottleneck" if compact else "netem was the bottleneck"
-        title = "netem was the bottleneck: " + "; ".join(evidence["reasons"])
+        label = (
+            t("evidence.netem_short") if compact else t("evidence.netem_long")
+        )
+        title = t("evidence.netem_long") + ": " + "; ".join(evidence["reasons"])
         warning = (
             f'<span class="netem-warning" title="{esc(title)}">'
             f"{label}</span>"
         )
     if evidence["has"]:
-        evidence_text = (
-            f"qdisc {drops} drops · {rate} · {overlimits} overlimits · "
-            f"{retrans} retrans"
+        evidence_text = t(
+            "evidence.line",
+            drops=drops,
+            rate=rate,
+            overlimits=overlimits,
+            retrans=retrans,
         )
     else:
-        evidence_text = "qdisc — drops · — overlimits · — retrans"
+        evidence_text = t("evidence.line_empty")
     return (
-        '<span class="group-evidence" title="Drops include simulated loss and '
-        'queue overflow. Drop rate = dropped / packets. Bottleneck threshold = '
-        'max(3 x configured loss, 0.5%)">'
+        f'<span class="group-evidence" title="{esc(t("evidence.tooltip"))}">'
         f"{evidence_text}</span>{neutral}{warning}"
     )
 
@@ -1016,7 +1832,7 @@ def ram_summary(records) -> dict:
     available = None
     source = "sys"
     for record in records:
-        for key, _ in PHASES:
+        for key in PHASES:
             sys = phase_sys(record, key)
             ram = sys.get("ram") if isinstance(sys.get("ram"), dict) else {}
             if not ram:
@@ -1064,7 +1880,7 @@ def record_nproc(record: Record):
 def rss_summary(records) -> dict:
     peaks = {"server": None, "client": None}
     for record in records:
-        for key, _ in PHASES:
+        for key in PHASES:
             sys = phase_sys(record, key)
             rss = (
                 sys.get("engine_rss_kb")
@@ -1087,7 +1903,7 @@ def rss_summary(records) -> dict:
 
 def any_cpu_rows(group: Group) -> bool:
     for record in group.records.values():
-        for key, _ in PHASES:
+        for key in PHASES:
             cpu = phase_sys(record, key).get("cpu")
             if isinstance(cpu, dict) and cpu:
                 return True
@@ -1096,7 +1912,7 @@ def any_cpu_rows(group: Group) -> bool:
 
 def any_evidence_rows(group: Group) -> bool:
     for record in group.records.values():
-        for key, _ in PHASES:
+        for key in PHASES:
             if phase_evidence(record, key):
                 return True
     return False
@@ -1129,7 +1945,9 @@ def group_is_invalid(group: Group) -> bool:
 
 
 def group_head(group: Group) -> str:
-    tag = '<span class="mini-tag">mixed pair</span>' if group.mixed else ""
+    tag = (
+        f'<span class="mini-tag">{t("run.mixed_pair")}</span>' if group.mixed else ""
+    )
     return (
         '<div class="group-head">'
         f'<span class="group-title">{group_swatch(group)}'
@@ -1394,12 +2212,11 @@ def table_throughput(groups) -> str:
         )
     return (
         '<div class="table-wrap" role="region" tabindex="0" '
-        'aria-label="Throughput table">'
+        f'aria-label="{esc(t("table.throughput.aria"))}">'
         '<table class="t-throughput">'
-        "<caption>Medians at RTT ≈ 0. MB/s as printed by the bench "
-        "(bytes/1e6); min–max in smaller type where recorded.</caption>"
+        f"<caption>{t('table.throughput.caption')}</caption>"
         "<thead><tr>"
-        '<th scope="col">Engine / scenario</th>'
+        f'<th scope="col">{t("table.engine")}</th>'
         '<th scope="col">↓1 MB/s</th>'
         '<th scope="col">↓8 MB/s</th>'
         '<th scope="col">↑1 MB/s</th>'
@@ -1421,13 +2238,11 @@ def table_rtt(groups) -> str:
         )
     return (
         '<div class="table-wrap" role="region" tabindex="0" '
-        'aria-label="Single-stream download table">'
+        f'aria-label="{esc(t("table.rtt.aria"))}">'
         '<table class="t-rtt">'
-        "<caption>Single-stream download at RTT ≈ 0 and at 50 ms. "
-        "MB/s as printed by the bench (bytes/1e6); min–max in smaller type "
-        "where recorded.</caption>"
+        f"<caption>{t('table.rtt.caption')}</caption>"
         "<thead><tr>"
-        '<th scope="col">Engine / scenario</th>'
+        f'<th scope="col">{t("table.engine")}</th>'
         '<th scope="col">↓1, RTT ≈ 0</th>'
         '<th scope="col">↓1, RTT 50 ms</th>'
         "</tr></thead><tbody>"
@@ -1465,16 +2280,15 @@ def table_ttfb(groups) -> str:
         )
     return (
         '<div class="table-wrap" role="region" tabindex="0" '
-        'aria-label="Time to first byte table">'
+        f'aria-label="{esc(t("table.ttfb.aria"))}">'
         '<table class="t-ttfb">'
-        "<caption>Time to first byte at RTT ≈ 0: median, p95, and the "
-        "number of connections with errors.</caption>"
+        f"<caption>{t('table.ttfb.caption')}</caption>"
         "<thead><tr>"
-        '<th scope="col">Engine / scenario</th>'
-        '<th scope="col">Median ms</th>'
-        '<th scope="col">p95 ms</th>'
-        '<th scope="col">Connections</th>'
-        '<th scope="col">Errors</th>'
+        f'<th scope="col">{t("table.engine")}</th>'
+        f'<th scope="col">{t("table.ttfb.median")}</th>'
+        f'<th scope="col">{t("table.ttfb.p95")}</th>'
+        f'<th scope="col">{t("table.connections")}</th>'
+        f'<th scope="col">{t("table.errors")}</th>'
         "</tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table></div>"
@@ -1496,16 +2310,15 @@ def table_conns(groups) -> str:
         )
     return (
         '<div class="table-wrap" role="region" tabindex="0" '
-        'aria-label="Connection rate table">'
+        f'aria-label="{esc(t("table.conns.aria"))}">'
         '<table class="t-conns">'
-        "<caption>Connection rate at RTT ≈ 0: connections per second, "
-        "total connections, requests in flight, and errors.</caption>"
+        f"<caption>{t('table.conns.caption')}</caption>"
         "<thead><tr>"
-        '<th scope="col">Engine / scenario</th>'
-        '<th scope="col">Conn/s</th>'
-        '<th scope="col">Connections</th>'
-        '<th scope="col">In flight</th>'
-        '<th scope="col">Errors</th>'
+        f'<th scope="col">{t("table.engine")}</th>'
+        f'<th scope="col">{t("table.conns.rate")}</th>'
+        f'<th scope="col">{t("table.connections")}</th>'
+        f'<th scope="col">{t("table.conns.inflight")}</th>'
+        f'<th scope="col">{t("table.errors")}</th>'
         "</tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table></div>"
@@ -1557,32 +2370,40 @@ def hardware_card(record: Record) -> str:
     cpu_model = machine.get("cpu_model") or raw.get("cpu")
     nproc = machine.get("nproc") if is_num(machine.get("nproc")) else raw.get("nproc")
     rows = [
-        kv_item("CPU", esc(text_or_dash(cpu_model))),
+        kv_item(t("kv.cpu"), esc(text_or_dash(cpu_model))),
         kv_item(
-            "nproc",
+            t("kv.nproc"),
             esc(f"{fmt_int(nproc)} vCPU") if is_num(nproc) else "—",
             mono=True,
         ),
-        kv_item("Kernel", esc(text_or_dash(raw.get("kernel"))), mono=True),
+        kv_item(t("kv.kernel"), esc(text_or_dash(raw.get("kernel"))), mono=True),
     ]
     mem_total = machine.get("mem_total_kb")
     mem_available = machine.get("mem_available_kb_at_start")
     if is_num(mem_total) or is_num(mem_available):
         memory = (
-            f"{fmt_kb(mem_available)} free / {fmt_kb(mem_total)} total"
+            t(
+                "mem.free_total",
+                free=fmt_kb(mem_available),
+                total=fmt_kb(mem_total),
+            )
             if is_num(mem_available) and is_num(mem_total)
             else fmt_kb(mem_available) if is_num(mem_available) else fmt_kb(mem_total)
         )
         title = ""
         if is_num(mem_total) or is_num(mem_available):
-            title = f' title="{esc(fmt_int(mem_available))} KiB free / {esc(fmt_int(mem_total))} KiB total"'
-        rows.append(kv_item("Memory", f'<span{title}>{esc(memory)}</span>', mono=True))
+            title = (
+                f' title="{esc(t("mem.free_title", free=fmt_int(mem_available), total=fmt_int(mem_total)))}"'
+            )
+        rows.append(
+            kv_item(t("kv.memory"), f'<span{title}>{esc(memory)}</span>', mono=True)
+        )
     sysctl = raw.get("sysctl") if isinstance(raw.get("sysctl"), dict) else {}
     for key in ("net.ipv4.tcp_rmem", "net.core.rmem_max", "net.core.wmem_max"):
         if key in sysctl:
             value = " ".join(str(sysctl[key]).split())
             rows.append(kv_item(key, esc(value), mono=True))
-    return card("Hardware", f'<dl class="kv">{"".join(rows)}</dl>')
+    return card(t("card.hardware"), f'<dl class="kv">{"".join(rows)}</dl>')
 
 
 def link_card(record: Record, records=None) -> str:
@@ -1596,18 +2417,18 @@ def link_card(record: Record, records=None) -> str:
         ports_text = ", ".join(str(port) for port in ports)
     else:
         ports_text = "—"
-    rows = [kv_item("Profile", profile_chip(record), mono=True)]
+    rows = [kv_item(t("link.kv.profile"), profile_chip(record), mono=True)]
     note = ""
     if link:
         rows.extend(
             [
-                kv_item("Delay", esc(link_delay_summary(link_records)), mono=True),
-                kv_item("Loss", esc(link_loss_text(link)), mono=True),
-                kv_item("Rate cap", esc(link_rate_text(link)), mono=True),
-                kv_item("MTU", esc(fmt_int(link.get("mtu"))), mono=True),
-                kv_item("GSO", esc(text_or_dash(link.get("gso"))), mono=True),
-                kv_item("Ports", esc(ports_text), mono=True),
-                kv_item("Queue limit", esc(text_or_dash(netem.get("limit"))), mono=True),
+                kv_item(t("link.kv.delay"), esc(link_delay_summary(link_records)), mono=True),
+                kv_item(t("link.kv.loss"), esc(link_loss_text(link)), mono=True),
+                kv_item(t("link.kv.rate"), esc(link_rate_text(link)), mono=True),
+                kv_item(t("link.kv.mtu"), esc(fmt_int(link.get("mtu"))), mono=True),
+                kv_item(t("link.kv.gso"), esc(text_or_dash(link.get("gso"))), mono=True),
+                kv_item(t("link.kv.ports"), esc(ports_text), mono=True),
+                kv_item(t("link.kv.queue"), esc(text_or_dash(netem.get("limit"))), mono=True),
             ]
         )
     else:
@@ -1615,26 +2436,23 @@ def link_card(record: Record, records=None) -> str:
         if not is_num(one_way):
             delay = "—"
         elif float(one_way) == 0:
-            delay = "off (RTT ≈ 0)"
+            delay = t("link.delay_off")
         else:
-            delay = (
-                f"{fmt_num(one_way, 2)} ms each way "
-                f"(≈ {fmt_num(float(one_way) * 2, 2)} ms RTT)"
+            delay = t(
+                "link.delay_each_way",
+                one=fmt_num(one_way, 2),
+                rtt=fmt_num(float(one_way) * 2, 2),
             )
         rows.extend(
             [
-                kv_item("Delay", esc(delay), mono=True),
-                kv_item("Queue limit", esc(text_or_dash(netem.get("limit"))), mono=True),
-                kv_item("Ports", esc(ports_text), mono=True),
+                kv_item(t("link.kv.delay"), esc(delay), mono=True),
+                kv_item(t("link.kv.queue"), esc(text_or_dash(netem.get("limit"))), mono=True),
+                kv_item(t("link.kv.ports"), esc(ports_text), mono=True),
             ]
         )
-        note = (
-            '<p class="card-note">Older result: no <code>link</code> profile '
-            "was recorded, so this card falls back to the <code>netem</code> "
-            "values.</p>"
-        )
+        note = f'<p class="card-note">{t("link.legacy_note")}</p>'
     return card(
-        "Link profile",
+        t("link.card_title"),
         f'<dl class="kv">{"".join(rows)}</dl>{note}',
     )
 
@@ -1661,20 +2479,20 @@ def source_card(record: Record, run_start, run_end) -> str:
     if isinstance(branch, str) and branch:
         details.append(esc(branch))
     if dirty is True:
-        details.append("dirty tree")
+        details.append(t("git.dirty"))
     elif dirty is False:
-        details.append("clean tree")
+        details.append(t("git.clean"))
     rows = [
-        kv_item("Commit", commit_html, mono=True),
-        kv_item("Branch", " · ".join(details) if details else "—", mono=True),
+        kv_item(t("git.commit"), commit_html, mono=True),
+        kv_item(t("git.branch"), " · ".join(details) if details else "—", mono=True),
         kv_item(
-            "Run window",
+            t("git.run_window"),
             f"{esc(fmt_dt(run_start))}<br>{esc(fmt_dt(run_end))}",
             mono=True,
         ),
-        kv_item("Newest result", esc(fmt_dt(record.ts)), mono=True),
+        kv_item(t("git.newest"), esc(fmt_dt(record.ts)), mono=True),
     ]
-    return card("Source", f'<dl class="kv">{"".join(rows)}</dl>')
+    return card(t("card.source"), f'<dl class="kv">{"".join(rows)}</dl>')
 
 
 def binaries_card(record: Record) -> str:
@@ -1683,13 +2501,13 @@ def binaries_card(record: Record) -> str:
     keys += sorted(key for key in inputs if key not in INPUT_ORDER)
     if not keys:
         return card(
-            "Binaries",
-            '<p class="card-empty">No binary metadata was recorded for this run.</p>',
+            t("card.binaries"),
+            f'<p class="card-empty">{t("binaries.empty")}</p>',
         )
     rows = []
     for key in keys:
         entry = inputs.get(key) if isinstance(inputs.get(key), dict) else {}
-        name = INPUT_NAMES.get(key, key)
+        name = input_name(key)
         version = text_or_dash(entry.get("version"))
         sha = entry.get("sha256")
         if isinstance(sha, str) and sha.strip():
@@ -1701,20 +2519,22 @@ def binaries_card(record: Record) -> str:
         rows.append(
             "<tr>"
             f'<th scope="row">{esc(name)}</th>'
-            f'<td class="bin-version" data-label="Version">{esc(version)}</td>'
-            f'<td class="bin-sha" data-label="SHA-256">{sha_html}</td>'
+            f'<td class="bin-version" data-label="{esc(t("binaries.label.version"))}">'
+            f"{esc(version)}</td>"
+            f'<td class="bin-sha" data-label="{esc(t("binaries.label.sha"))}">'
+            f"{sha_html}</td>"
             "</tr>"
         )
     return card(
-        "Binaries",
+        t("card.binaries"),
         '<div class="table-wrap table-plain" role="region" tabindex="0" '
-        'aria-label="Binaries table">'
+        f'aria-label="{esc(t("binaries.aria"))}">'
         '<table class="t-binaries">'
-        '<caption class="sr-only">Binaries recorded in the newest result file</caption>'
+        f'<caption class="sr-only">{t("binaries.caption")}</caption>'
         "<thead><tr>"
-        '<th scope="col">Binary</th>'
-        '<th scope="col">Version</th>'
-        '<th scope="col">SHA-256 (short)</th>'
+        f'<th scope="col">{t("binaries.col.binary")}</th>'
+        f'<th scope="col">{t("binaries.col.version")}</th>'
+        f'<th scope="col">{t("binaries.col.sha")}</th>'
         "</tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table></div>",
@@ -1725,23 +2545,15 @@ def binaries_card(record: Record) -> str:
 def run_callout(record: Record | None) -> str:
     nproc = record_nproc(record) if record else None
     if is_num(nproc) and float(nproc) != 4:
-        first = (
-            f"This run recorded {fmt_int(nproc)} vCPU. Published CI runs use "
-            "4-vCPU GitHub-hosted runners, and the committed reference used 16 cores."
-        )
+        first = t("run.callout.first", n=fmt_int(nproc))
     else:
-        first = (
-            "GitHub-hosted runners have 4 vCPU; the committed reference below "
-            "used 16 cores."
-        )
+        first = t("run.callout.first_default")
     return (
-        '<aside class="callout" aria-label="Comparability warning">'
+        f'<aside class="callout" aria-label="{esc(t("run.callout.aria"))}">'
         '<span class="callout-mark" aria-hidden="true">!</span>'
         "<div>"
-        "<strong>Only compare numbers within one run.</strong>"
-        f"<p>{esc(first)} Absolute MB/s depends on the machine, the kernel and "
-        "the socket buffers. These are protocol-layer numbers on a recorded "
-        "loopback path, not a prediction for a real network link.</p>"
+        f"<strong>{t('run.callout.title')}</strong>"
+        f"<p>{esc(first)} {t('run.callout.body')}</p>"
         "</div></aside>"
     )
 
@@ -1757,44 +2569,44 @@ def run_sources_details(run, selected, ignored, invalid, scanned, total_bench, s
             f"<span>{esc(rtt)}</span> · {esc(record.name)}</li>"
         )
     notes = [
-        f"Scanned {scanned} JSON file{'s' if scanned != 1 else ''} in this directory.",
-        f"Charted {len(selected)} result file{'s' if len(selected) != 1 else ''} "
-        f"from the latest contiguous run ({len(run)} throughput file"
-        f"{'s' if len(run) != 1 else ''}).",
+        t("sources.scanned", n=scanned, files=p(scanned, "files")),
+        t(
+            "sources.charted",
+            n=len(selected),
+            result_files=p(len(selected), "result_files"),
+            m=len(run),
+            throughput_files=p(len(run), "throughput_files"),
+        ),
     ]
     if len(run) > len(selected):
+        superseded = len(run) - len(selected)
         notes.append(
-            f"{len(run) - len(selected)} earlier file"
-            f"{'s' if len(run) - len(selected) != 1 else ''} in the same run "
-            "were superseded by a newer file for the same scenario and RTT."
+            t("sources.superseded", n=superseded, files=p(superseded, "files"))
         )
     older = total_bench - len(run)
     if older > 0:
         notes.append(
-            f"{older} result file{'s' if older != 1 else ''} from earlier "
-            "runs were not charted."
+            t("sources.older", n=older, result_files=p(older, "result_files"))
         )
     if ignored:
         notes.append(
-            f"{len(ignored)} file{'s' if len(ignored) != 1 else ''} without "
-            "throughput metrics (for example DNS runs) "
-            f"{'were' if len(ignored) != 1 else 'was'} ignored."
+            t("sources.ignored", n=len(ignored), files=p(len(ignored), "files"))
         )
     if invalid:
         notes.append(
-            f"{len(invalid)} file{'s' if len(invalid) != 1 else ''} could not "
-            f"be read and {'were' if len(invalid) != 1 else 'was'} skipped: "
-            + ", ".join(esc(name) for name in invalid) + "."
+            t(
+                "sources.invalid",
+                n=len(invalid),
+                files=p(len(invalid), "files"),
+                names=", ".join(esc(name) for name in invalid),
+            )
         )
     return (
         '<details class="sources">'
-        "<summary>Result files behind this run</summary>"
+        f"<summary>{t('sources.summary')}</summary>"
         f'<ul class="source-list">{"".join(items)}</ul>'
         f'<p class="details-note">{" ".join(notes)}</p>'
-        '<p class="details-note">Raw JSON is committed to '
-        f'<a href="{CI_RESULTS_URL}">ci-results/</a> and uploaded as the '
-        f'<code>ci-results</code> artifact from the '
-        f'<a href="{ACTIONS_URL}">bench workflow</a>.</p>'
+        f'<p class="details-note">{t("sources.raw", results_url=CI_RESULTS_URL, actions_url=ACTIONS_URL)}</p>'
         "</details>"
     )
 
@@ -1815,11 +2627,12 @@ def render_run_section(records, selected, groups, run, ignored, invalid, scanned
             '<div class="run-strip">'
             f"{profile_chip(link_record)}"
             f"{validity_badge(selected, details=True)}"
-            f'<span class="chip"><strong>{len(groups)}</strong> scenario'
-            f"{'s' if len(groups) != 1 else ''}</span>"
-            f'<span class="chip"><strong>{len(selected)}</strong> result file'
-            f"{'s' if len(selected) != 1 else ''}</span>"
-            f'<span class="chip"><strong>{esc(fmt_date(newest.ts))}</strong> run date</span>'
+            f'<span class="chip"><strong>{len(groups)}</strong> '
+            f"{t('run.chip.scenarios', n=len(groups), word=p(len(groups), 'scenarios'))}</span>"
+            f'<span class="chip"><strong>{len(selected)}</strong> '
+            f"{t('run.chip.results', n=len(selected), word=p(len(selected), 'result_files'))}</span>"
+            f'<span class="chip"><strong>{esc(fmt_date(newest.ts))}</strong> '
+            f"{t('run.chip.date', date='')}</span>"
             f'<span class="chip"><strong>{esc(fmt_int(record_nproc(newest)))}</strong> vCPU</span>'
             "</div>"
         )
@@ -1828,17 +2641,20 @@ def render_run_section(records, selected, groups, run, ignored, invalid, scanned
         if run_validity["status"] == "unknown":
             parts.append(
                 '<p class="details-note">'
-                f"{esc(validity_unknown_text(run_validity))} Their numbers are "
-                "still shown.</p>"
+                f"{esc(validity_unknown_text(run_validity))} "
+                f"{t('run.unknown_suffix')}</p>"
             )
         missing_link = sum(1 for record in selected if not link_data(record))
         if linked and missing_link:
             parts.append(
                 '<p class="details-note">'
-                f"{missing_link} selected result file"
-                f"{'s have' if missing_link != 1 else ' has'} no "
-                "<code>link</code> profile; the header shows the newest recorded "
-                "profile.</p>"
+                + t(
+                    "run.missing_link",
+                    n=missing_link,
+                    files=p(missing_link, "result_files"),
+                    verb="has" if missing_link == 1 else "have",
+                )
+                + "</p>"
             )
         profiles = sorted(
             {
@@ -1849,9 +2665,12 @@ def render_run_section(records, selected, groups, run, ignored, invalid, scanned
         )
         if len(profiles) > 1:
             parts.append(
-                '<p class="details-note">Selected result files use more than one '
-                f"link profile ({', '.join(esc(profile) for profile in profiles)}); "
-                "the header shows the newest recorded profile.</p>"
+                '<p class="details-note">'
+                + t(
+                    "run.multiple_profiles",
+                    profiles=", ".join(esc(profile) for profile in profiles),
+                )
+                + "</p>"
             )
         parts.append(run_callout(newest))
         parts.append(
@@ -1869,32 +2688,23 @@ def render_run_section(records, selected, groups, run, ignored, invalid, scanned
         )
     else:
         if state == "missing":
-            message = (
-                "The results directory <code>ci-results/</code> is not present "
-                "in this build. The page falls back to the committed 16-core "
-                "reference below."
-            )
+            message = t("empty.missing")
         elif state == "empty":
-            message = (
-                "The results directory is empty. The workflow writes one JSON "
-                "file per measured scenario × RTT; until it runs, the committed "
-                "reference below is the only data on this page."
-            )
+            message = t("empty.empty_dir")
         elif state == "not-directory":
-            message = "The results path is not a directory."
+            message = t("empty.not_directory")
         else:
-            message = (
-                f"The results directory has {scanned} JSON file"
-                f"{'s' if scanned != 1 else ''}, but none contain throughput "
-                "metrics. The page falls back to the committed reference below."
+            message = t(
+                "empty.no_bench",
+                n=scanned,
+                files=p(scanned, "files"),
             )
         parts.append(
             '<div class="empty">'
-            '<span class="empty-tag">No CI results yet</span>'
-            "<h3>This build has no measured run to chart.</h3>"
+            f'<span class="empty-tag">{t("empty.no_ci")}</span>'
+            f"<h3>{t('empty.title')}</h3>"
             f"<p>{message}</p>"
-            "<p>The page still builds, and the reference charts and caveats "
-            "below still apply. To preview a local directory:</p>"
+            f"<p>{t('empty.body')}</p>"
             "<pre><code>python3 site/build.py --results results</code></pre>"
             "</div>"
         )
@@ -1903,23 +2713,26 @@ def render_run_section(records, selected, groups, run, ignored, invalid, scanned
             notes = []
             if ignored:
                 notes.append(
-                    f"{len(ignored)} file{'s' if len(ignored) != 1 else ''} "
-                    "without throughput metrics "
-                    f"{'were' if len(ignored) != 1 else 'was'} ignored."
+                    t(
+                        "sources.ignored",
+                        n=len(ignored),
+                        files=p(len(ignored), "files"),
+                    )
                 )
             if invalid:
                 notes.append(
-                    f"{len(invalid)} file{'s' if len(invalid) != 1 else ''} "
-                    f"{'were' if len(invalid) != 1 else 'was'} could not be read."
+                    t(
+                        "sources.unread",
+                        n=len(invalid),
+                        files=p(len(invalid), "files"),
+                    )
                 )
             parts.append(f'<p class="details-note">{" ".join(notes)}</p>')
     return section(
         "latest",
-        "01",
-        "Latest CI run",
-        "The newest contiguous set of result files. One JSON per measured "
-        "scenario × RTT; if a scenario was rerun, the newest file wins. "
-        "Invalid results are marked, not hidden.",
+        t("section.01.number"),
+        t("section.01.title"),
+        t("section.01.lede"),
         "".join(parts),
     )
 
@@ -1930,7 +2743,7 @@ def render_run_section(records, selected, groups, run, ignored, invalid, scanned
 
 def legend_rtt() -> str:
     return (
-        '<div class="legend" aria-label="Series">'
+        f'<div class="legend" aria-label="{esc(t("legend.aria"))}">'
         '<span><i class="swatch" style="background:var(--ink-2)"></i>RTT ≈ 0</span>'
         '<span><i class="swatch tint-neutral"></i>RTT 50 ms</span>'
         "</div>"
@@ -1949,56 +2762,47 @@ def render_results_section(groups):
     if not groups:
         body = (
             '<div class="empty">'
-            '<span class="empty-tag">Nothing to chart</span>'
-            "<h3>No measured scenarios in this build.</h3>"
-            "<p>The generator found no JSON files with throughput, TTFB or "
-            "connection metrics. Reference charts and caveats are unaffected.</p>"
+            f'<span class="empty-tag">{t("results.nothing_tag")}</span>'
+            f"<h3>{t('results.nothing_title')}</h3>"
+            f"<p>{t('results.nothing_body')}</p>"
             "</div>"
         )
         return section(
             "results",
-            "02",
-            "Results",
-            "Charts and tables come from the same JSON. Invalid results are "
-            "marked, not hidden; missing values are shown as — and are never "
-            "guessed.",
+            t("section.02.number"),
+            t("section.02.title"),
+            t("section.02.lede"),
             body,
         )
 
     parts = []
-    parts.append(
-        '<p class="sample-line">Latest file per scenario × RTT. '
-        "A dash means the metric is absent from the JSON.</p>"
-    )
-    parts.append('<p class="table-hint">Tables below scroll sideways.</p>')
+    parts.append(f'<p class="sample-line">{t("results.sample")}</p>')
+    parts.append(f'<p class="table-hint">{t("results.table_hint")}</p>')
 
     if rtt0_groups:
         parts.append(
             chart_block(
                 "chart-throughput",
-                "Throughput at RTT ≈ 0",
-                "Median MB/s through SOCKS · higher is better",
+                t("chart.throughput.title"),
+                t("chart.throughput.sub"),
                 throughput_chart(rtt0_groups),
-                "Medians over the recorded runs. MB/s as printed by the bench "
-                "(bytes/1e6).",
+                t("chart.throughput.foot"),
                 table_throughput(rtt0_groups),
             )
         )
     else:
         parts.append(
-            '<p class="missing-note">No RTT ≈ 0 throughput results in this run. '
-            "The 50 ms section below is shown instead.</p>"
+            f'<p class="missing-note">{t("results.missing_rtt0")}</p>'
         )
 
     if has_rtt50:
         parts.append(
             chart_block(
                 "chart-rtt50",
-                "Single-stream download: RTT ≈ 0 vs 50 ms",
-                "Median MB/s · higher is better",
+                t("chart.rtt.title"),
+                t("chart.rtt.sub"),
                 rtt_chart(rtt_groups),
-                "At 8 streams and 50 ms, netem itself is the bottleneck, so only "
-                "↓1 is compared at 50 ms.",
+                t("chart.rtt.foot"),
                 table_rtt(rtt_groups),
                 legend=legend_rtt(),
                 extra_class="chart-block-rtt",
@@ -2006,8 +2810,7 @@ def render_results_section(groups):
         )
     else:
         parts.append(
-            '<p class="missing-note">No 50 ms results in this run. The CI probe '
-            "skips RTT 50 ms when netem is unavailable on the runner.</p>"
+            f'<p class="missing-note">{t("results.missing_rtt50")}</p>'
         )
 
     if rtt0_groups:
@@ -2027,44 +2830,40 @@ def render_results_section(groups):
             parts.append(
                 chart_block(
                     "chart-ttfb",
-                    "Time to first byte",
-                    "ms · bar = median, mark = p95 · lower is better",
+                    t("chart.ttfb.title"),
+                    t("chart.ttfb.sub"),
                     ttfb_chart(rtt0_groups),
-                    "TTFB covers TCP to SOCKS, CONNECT, tunnel setup and one byte "
-                    "from the target. The mark is the p95 over the recorded runs.",
+                    t("chart.ttfb.foot"),
                     table_ttfb(rtt0_groups),
                     extra_class="chart-ttfb",
                 )
             )
         else:
             parts.append(
-                '<p class="missing-note">No TTFB metric at RTT ≈ 0 in this run.</p>'
+                f'<p class="missing-note">{t("results.missing_ttfb")}</p>'
             )
 
         if conn_values:
             parts.append(
                 chart_block(
                     "chart-conns",
-                    "Connection rate",
-                    "conn/s · higher is better",
+                    t("chart.conns.title"),
+                    t("chart.conns.sub"),
                     conns_chart(rtt0_groups),
-                    "Connections per second with four requests in flight, "
-                    "over the recorded runs.",
+                    t("chart.conns.foot"),
                     table_conns(rtt0_groups),
                 )
             )
         else:
             parts.append(
-                '<p class="missing-note">No connection-rate metric at RTT ≈ 0 '
-                "in this run.</p>"
+                f'<p class="missing-note">{t("results.missing_conns")}</p>'
             )
 
     return section(
         "results",
-        "02",
-        "Results",
-        "Charts and tables come from the same JSON. Invalid results are marked, "
-        "not hidden; missing values are shown as — and are never guessed.",
+        t("section.02.number"),
+        t("section.02.title"),
+        t("section.02.lede"),
         "".join(parts),
     )
 
@@ -2080,7 +2879,7 @@ def cost_cpu_table(group: Group) -> str:
         group.records.values(),
         key=lambda item: (item.rtt is None, item.rtt if item.rtt is not None else 0, item.name),
     ):
-        for key, label in PHASES:
+        for key in PHASES:
             sys = phase_sys(record, key)
             cpu = sys.get("cpu") if isinstance(sys.get("cpu"), dict) else {}
             if not cpu:
@@ -2104,7 +2903,7 @@ def cost_cpu_table(group: Group) -> str:
             if nproc is not None:
                 phase_meta += f" · {fmt_int(nproc)} vCPU"
             phase_html = (
-                f'<span class="cost-phase">{esc(label)}</span>'
+                f'<span class="cost-phase">{esc(phase_label(key))}</span>'
                 f'<span class="cost-phase-meta">{esc(phase_meta)}</span>'
             )
             rows.append(
@@ -2122,29 +2921,23 @@ def cost_cpu_table(group: Group) -> str:
                 "</tr>"
             )
     if not rows:
-        return (
-            '<p class="cost-note">No <code>sys.cpu</code> counters were recorded '
-            "for this scenario (older result format).</p>"
-        )
+        return f'<p class="cost-note">{t("cost.cpu.none")}</p>'
     return (
         '<div class="table-wrap" role="region" tabindex="0" '
-        'aria-label="CPU cost table">'
+        f'aria-label="{esc(t("cost.cpu.aria"))}">'
         '<table class="t-cost">'
-        "<caption>System CPU counters. Busy cores = busy_ms / 1000 / wall_s. "
-        "CPU % of wall = busy_ms / (wall_s × 1000 × nproc) × 100, computed "
-        "only when wall time can be derived from a recorded transfer total or "
-        "connection count.</caption>"
+        f"<caption>{t('cost.cpu.caption')}</caption>"
         "<thead><tr>"
-        '<th scope="col">Phase</th>'
-        '<th scope="col">Runs</th>'
-        '<th scope="col">Busy ms</th>'
-        '<th scope="col">Wall s</th>'
-        '<th scope="col">Busy cores</th>'
-        '<th scope="col">CPU % wall</th>'
-        '<th scope="col">User ms</th>'
-        '<th scope="col">System ms</th>'
-        '<th scope="col">Softirq ms</th>'
-        '<th scope="col">IRQ ms</th>'
+        f'<th scope="col">{t("cost.col.phase")}</th>'
+        f'<th scope="col">{t("cost.col.runs")}</th>'
+        f'<th scope="col">{t("cost.col.busy")}</th>'
+        f'<th scope="col">{t("cost.col.wall")}</th>'
+        f'<th scope="col">{t("cost.col.cores")}</th>'
+        f'<th scope="col">{t("cost.col.cpu_pct")}</th>'
+        f'<th scope="col">{t("cost.col.user")}</th>'
+        f'<th scope="col">{t("cost.col.system")}</th>'
+        f'<th scope="col">{t("cost.col.softirq")}</th>'
+        f'<th scope="col">{t("cost.col.irq")}</th>'
         "</tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table></div>"
@@ -2157,7 +2950,7 @@ def cost_evidence_table(group: Group) -> str:
         group.records.values(),
         key=lambda item: (item.rtt is None, item.rtt if item.rtt is not None else 0, item.name),
     ):
-        for key, label in PHASES:
+        for key in PHASES:
             evidence = phase_evidence(record, key)
             if not evidence:
                 continue
@@ -2165,7 +2958,7 @@ def cost_evidence_table(group: Group) -> str:
             numbers = assessment
             bottleneck = assessment["bottleneck"]
             phase_html = (
-                f'<span class="cost-phase">{esc(label)}</span>'
+                f'<span class="cost-phase">{esc(phase_label(key))}</span>'
                 f'<span class="cost-phase-meta">{esc(rtt_text(record.rtt))}</span>'
             )
             row_class = ' class="is-bottleneck"' if bottleneck else ""
@@ -2182,28 +2975,21 @@ def cost_evidence_table(group: Group) -> str:
                 "</tr>"
             )
     if not rows:
-        return (
-            '<p class="cost-note">No qdisc or socket evidence was recorded '
-            "for this scenario (older result format).</p>"
-        )
+        return f'<p class="cost-note">{t("cost.evidence.none")}</p>'
     return (
         '<div class="table-wrap" role="region" tabindex="0" '
-        'aria-label="qdisc and socket evidence table">'
+        f'aria-label="{esc(t("cost.evidence.aria"))}">'
         '<table class="t-evidence">'
-        "<caption>qdisc and socket counters as recorded per phase. Drop rate = "
-        "dropped / packets and includes simulated loss. Bottleneck when "
-        "overlimits &gt; 0, drop rate &gt; max(3 × configured loss, 0.5%), or "
-        "backlog ≥ 50% of the parsed queue limit. When configured loss is "
-        "unknown, 0.5% is used.</caption>"
+        f"<caption>{t('cost.evidence.caption')}</caption>"
         "<thead><tr>"
-        '<th scope="col">Phase</th>'
-        '<th scope="col">qdisc drops</th>'
-        '<th scope="col">Drop rate</th>'
-        '<th scope="col">Overlimits</th>'
-        '<th scope="col">Requeues</th>'
-        '<th scope="col">Backlog pkt</th>'
-        '<th scope="col">Sock retrans</th>'
-        '<th scope="col">Sockets</th>'
+        f'<th scope="col">{t("cost.col.phase")}</th>'
+        f'<th scope="col">{t("cost.col.qdisc_drops")}</th>'
+        f'<th scope="col">{t("cost.col.drop_rate")}</th>'
+        f'<th scope="col">{t("cost.col.overlimits")}</th>'
+        f'<th scope="col">{t("cost.col.requeues")}</th>'
+        f'<th scope="col">{t("cost.col.backlog")}</th>'
+        f'<th scope="col">{t("cost.col.retrans")}</th>'
+        f'<th scope="col">{t("cost.col.sockets")}</th>'
         "</tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table></div>"
@@ -2216,7 +3002,7 @@ def raw_counters_details(group: Group) -> str:
         group.records.values(),
         key=lambda item: (item.rtt is None, item.rtt if item.rtt is not None else 0, item.name),
     ):
-        for key, label in PHASES:
+        for key in PHASES:
             evidence = phase_evidence(record, key)
             if not evidence:
                 continue
@@ -2227,7 +3013,7 @@ def raw_counters_details(group: Group) -> str:
                     continue
                 items.append(
                     '<div class="raw-item">'
-                    f'<span class="raw-label">{esc(kind)} · {esc(label)} · '
+                    f'<span class="raw-label">{esc(kind)} · {esc(phase_label(key))} · '
                     f"{esc(rtt_text(record.rtt))}</span>"
                     f"<pre class=\"raw-value\"><code>{esc(truncate_text(raw, 360))}</code></pre>"
                     "</div>"
@@ -2236,7 +3022,7 @@ def raw_counters_details(group: Group) -> str:
         return ""
     return (
         '<details class="raw-details">'
-        "<summary>Raw qdisc / socket counters (truncated)</summary>"
+        f"<summary>{t('cost.raw.summary')}</summary>"
         + "".join(items)
         + "</details>"
     )
@@ -2247,23 +3033,28 @@ def cost_card(group: Group) -> str:
     ram = ram_summary(records)
     rss = rss_summary(records)
     if is_num(ram["total"]) or is_num(ram["available"]):
-        source = "machine start" if ram["source"] == "machine" else "free min"
+        source = t(
+            "cost.ram.machine" if ram["source"] == "machine" else "cost.ram.free"
+        )
         ram_chip = (
-            f'<span class="cost-chip">RAM <strong>{esc(fmt_kb(ram["available"]))}</strong> '
-            f'{esc(source)} / {esc(fmt_kb(ram["total"]))}</span>'
+            f'<span class="cost-chip">'
+            f"{t('cost.ram.chip', free=esc(fmt_kb(ram['available'])), source=esc(source), total=esc(fmt_kb(ram['total'])))}"
+            "</span>"
         )
     else:
-        ram_chip = '<span class="cost-chip">RAM <strong>—</strong></span>'
+        ram_chip = f'<span class="cost-chip">{t("cost.ram.empty")}</span>'
     if rss["server"] is not None or rss["client"] is not None:
         rss_chip = (
-            '<span class="cost-chip">RSS peak · server '
-            f'<strong>{esc(fmt_kb(rss["server"]))}</strong> · client '
-            f'<strong>{esc(fmt_kb(rss["client"]))}</strong></span>'
+            f'<span class="cost-chip">'
+            f"{t('cost.rss.chip', server=esc(fmt_kb(rss['server'])), client=esc(fmt_kb(rss['client'])))}"
+            "</span>"
         )
     else:
-        rss_chip = '<span class="cost-chip">RSS peak <strong>—</strong></span>'
+        rss_chip = f'<span class="cost-chip">{t("cost.rss.empty")}</span>'
 
-    tag = '<span class="mini-tag">mixed pair</span>' if group.mixed else ""
+    tag = (
+        f'<span class="mini-tag">{t("run.mixed_pair")}</span>' if group.mixed else ""
+    )
     extra = " is-invalid" if group_is_invalid(group) else ""
     info = validity_info(records)
     evidence_summary = group_evidence(group)
@@ -2274,11 +3065,7 @@ def cost_card(group: Group) -> str:
             f"{esc(validity_unknown_text(info))}</p>"
         )
     if evidence_summary["has"] and evidence_summary["loss_unknown"]:
-        unknown_note += (
-            '<p class="cost-note">Configured loss is not recorded for at least '
-            "one result; the drop-rate comparison uses the 0.5% fallback "
-            "threshold.</p>"
-        )
+        unknown_note += f'<p class="cost-note">{t("cost.loss_note")}</p>'
     return (
         f'<article class="cost-card{extra}">'
         '<div class="cost-head">'
@@ -2291,9 +3078,9 @@ def cost_card(group: Group) -> str:
         "</div>"
         f"{validity_notice(records)}{unknown_note}"
         f'<div class="cost-summary">{ram_chip}{rss_chip}</div>'
-        '<h4>CPU cost</h4>'
+        f"<h4>{t('cost.h4.cpu')}</h4>"
         f"{cost_cpu_table(group)}"
-        '<h4>qdisc / socket evidence</h4>'
+        f"<h4>{t('cost.h4.evidence')}</h4>"
         f"{cost_evidence_table(group)}"
         f"{raw_counters_details(group)}"
         "</article>"
@@ -2304,11 +3091,10 @@ def render_cost_section(groups):
     if not groups:
         return section(
             "cost",
-            "03",
-            "Cost & evidence",
-            "System CPU, RAM and engine RSS from each result, plus qdisc and "
-            "socket counters. Missing counters are shown as —.",
-            '<p class="missing-note">No cost or evidence data in this build.</p>',
+            t("section.03.number"),
+            t("section.03.title"),
+            t("section.03.lede"),
+            f'<p class="missing-note">{t("cost.missing")}</p>',
         )
 
     bottleneck = [group for group in groups if group_evidence(group)["bottleneck"]]
@@ -2316,7 +3102,7 @@ def render_cost_section(groups):
         any_cpu_rows(group) or any_evidence_rows(group) for group in groups
     )
     parts = (
-        ['<p class="table-hint">Cost and evidence tables scroll sideways.</p>']
+        [f'<p class="table-hint">{t("cost.table_hint")}</p>']
         if has_panels
         else []
     )
@@ -2325,9 +3111,11 @@ def render_cost_section(groups):
         for group in bottleneck:
             summary = group_evidence(group)
             reasons = summary["reasons"]
-            reason_text = "; ".join(reasons[:3]) if reasons else "threshold exceeded"
+            reason_text = (
+                "; ".join(reasons[:3]) if reasons else t("cost.callout.fallback")
+            )
             if len(reasons) > 3:
-                reason_text += f"; +{len(reasons) - 3} more phase(s)"
+                reason_text += "; " + t("cost.callout.more", n=len(reasons) - 3)
             rate_text = (
                 f"{fmt_num(summary['drop_rate_pct'], 3)}%"
                 if summary["drop_rate_pct"] is not None
@@ -2335,36 +3123,30 @@ def render_cost_section(groups):
             )
             items.append(
                 f"<li><strong>{esc(group.display)}</strong> — "
-                f"{esc(fmt_int(summary['dropped']))} drops · {esc(rate_text)}; "
-                f"{esc(reason_text)}</li>"
+                f"{esc(t('cost.callout.item', drops=fmt_int(summary['dropped']), rate=rate_text, reasons=reason_text))}"
+                "</li>"
             )
         parts.append(
-            '<aside class="callout evidence-callout" aria-label="Shaper warning">'
+            f'<aside class="callout evidence-callout" aria-label="{esc(t("cost.callout.aria"))}">'
             '<span class="callout-mark" aria-hidden="true">!</span>'
             "<div>"
-            "<strong>netem was the bottleneck.</strong>"
-            "<p>qdisc evidence exceeded the bottleneck rule for:</p>"
+            f"<strong>{t('cost.callout.title')}</strong>"
+            f"<p>{t('cost.callout.intro')}</p>"
             f'<ul class="evidence-list">{"".join(items)}</ul>'
-            "<p>Drops alone are not a bottleneck: the qdisc counter includes "
-            "the configured simulated loss. This callout requires overlimits, "
-            "a drop rate above the threshold, or a backlog at half the parsed "
-            "queue limit.</p></div></aside>"
+            f"<p>{t('cost.callout.body')}</p></div></aside>"
         )
     if not any(any_cpu_rows(group) for group in groups) and not any(
         any_evidence_rows(group) for group in groups
     ):
         parts.append(
-            '<p class="missing-note">These result files predate the '
-            "<code>sys</code> and <code>evidence</code> fields. The cost and "
-            "evidence panels below show — for the missing counters.</p>"
+            f'<p class="missing-note">{t("cost.predate")}</p>'
         )
     parts.extend(cost_card(group) for group in groups)
     return section(
         "cost",
-        "03",
-        "Cost & evidence",
-        "System CPU, RAM and engine RSS from each result, plus qdisc and "
-        "socket counters. Missing counters are shown as —.",
+        t("section.03.number"),
+        t("section.03.title"),
+        t("section.03.lede"),
         "".join(parts),
     )
 
@@ -2396,6 +3178,13 @@ def engine_label(data: dict, engine: str, fallback: str) -> str:
     return fallback
 
 
+def tight_units(text: str) -> str:
+    """Keep a value and its unit on the same line."""
+    for unit in (" MB/s", " ms", " conn/s", " vCPU"):
+        text = text.replace(unit, "\u00a0" + unit[1:])
+    return text
+
+
 def reference_story(data: dict) -> str:
     label = engine_label(data, "unbihex_stock", "Unbihex")
     base = ref_get(data, "rtt0", "unbihex_stock", "down1")
@@ -2413,18 +3202,28 @@ def reference_story(data: dict) -> str:
     if base is not None and shaped is not None:
         drop = ""
         if shaped > 0 and base / shaped >= 1.5:
-            drop = f", a {fmt_num(base / shaped, 0)}× drop"
+            drop = t("ref.story.drop", ratio=fmt_num(base / shaped, 0))
         compare = ""
-        if xray50 is not None:
-            compare = f", while Xray holds {fmt_num(xray50, 1)}"
-            if singbox50 is not None:
-                compare += f" and sing-box {fmt_num(singbox50, 1)}"
-            compare += "\u00a0MB/s"
+        if xray50 is not None and singbox50 is not None:
+            compare = t(
+                "ref.story.holds_both",
+                xray=fmt_num(xray50, 1),
+                singbox=fmt_num(singbox50, 1),
+            )
+        elif xray50 is not None:
+            compare = t("ref.story.holds_xray", xray=fmt_num(xray50, 1))
         elif singbox50 is not None:
-            compare = f", while sing-box holds {fmt_num(singbox50, 1)}\u00a0MB/s"
+            compare = t("ref.story.holds_singbox", singbox=fmt_num(singbox50, 1))
         sentences.append(
-            f"At 50 ms {label} falls from {fmt_num(base, 1)} to "
-            f"{fmt_num(shaped, 1)}\u00a0MB/s{drop}{compare}."
+            t(
+                "ref.story.falls",
+                label=label,
+                base=fmt_num(base, 1),
+                shaped=fmt_num(shaped, 1),
+            )
+            + drop
+            + compare
+            + "."
         )
 
     if conns is not None and ttfb_p95 is not None:
@@ -2439,17 +3238,36 @@ def reference_story(data: dict) -> str:
             and ttfb_p95 > max(rivals_p95)
         ):
             sentences.append(
-                f"On the RTT ≈ 0 run {label} has the lowest connection rate "
-                f"({fmt_num(conns, 1)}\u00a0conn/s) and the highest TTFB p95 "
-                f"({fmt_num(ttfb_p95, 2)}\u00a0ms)."
+                t(
+                    "ref.story.rank",
+                    label=label,
+                    conns=fmt_num(conns, 1),
+                    ttfb=fmt_num(ttfb_p95, 2),
+                )
             )
         else:
             sentences.append(
-                f"On the RTT ≈ 0 run {label} records {fmt_num(conns, 1)}\u00a0conn/s "
-                f"and {fmt_num(ttfb_p95, 2)}\u00a0ms TTFB p95."
+                t(
+                    "ref.story.neutral",
+                    label=label,
+                    conns=fmt_num(conns, 1),
+                    ttfb=fmt_num(ttfb_p95, 2),
+                )
             )
 
-    return " ".join(sentences)
+    return tight_units(" ".join(sentences))
+
+
+def meta_value(value: str) -> str:
+    """Translate the two descriptive metadata values committed in data.json."""
+    if LANG != "ru":
+        return value
+    match = re.fullmatch(r"(\d+) cores", value.strip())
+    if match:
+        return t("ref.value.cores", n=match.group(1))
+    if value.strip() == "netem on the tunnel port only":
+        return t("ref.value.rtt_method")
+    return value
 
 
 def reference_meta(data: dict) -> str:
@@ -2457,23 +3275,23 @@ def reference_meta(data: dict) -> str:
     chips = []
     release = source.get("release")
     if isinstance(release, str) and release:
-        chips.append(("Release", release))
+        chips.append((t("ref.meta.release"), release))
     commit = source.get("provenance_commit")
     if isinstance(commit, str) and commit:
-        chips.append(("Base", commit))
+        chips.append((t("ref.meta.base"), commit))
     date = source.get("date")
     if isinstance(date, str) and date:
-        chips.append(("Date", date))
+        chips.append((t("ref.meta.date"), date))
     machine = source.get("machine")
     if isinstance(machine, str) and machine:
-        chips.append(("Machine", machine))
+        chips.append((t("ref.meta.machine"), meta_value(machine)))
     path = source.get("path")
     if isinstance(path, str) and path:
-        chips.append(("Path", path))
+        chips.append((t("ref.meta.path"), path))
     rtt_method = source.get("rtt_method")
     if isinstance(rtt_method, str) and rtt_method:
-        chips.append(("RTT", rtt_method))
-    chips.append(("Profile", "loopback · MTU 65536 · no loss"))
+        chips.append((t("ref.meta.rtt"), meta_value(rtt_method)))
+    chips.append((t("ref.meta.profile"), t("ref.meta.profile_value")))
     if not chips:
         return ""
     return (
@@ -2486,40 +3304,10 @@ def reference_meta(data: dict) -> str:
 
 
 REFERENCE_FIGURES = (
-    (
-        "throughput-rtt0.svg",
-        "Median MB/s for ↓1, ↓8 and ↑1 across the three engines.",
-        "Grouped bar chart of median throughput in MB/s at RTT close to zero. "
-        "sing-box leads single- and eight-stream download and upload; Unbihex "
-        "0.2.2 sits between Xray and sing-box. Three engines are labelled.",
-        440,
-    ),
-    (
-        "throughput-rtt50.svg",
-        "↓1 at RTT ≈ 0 and 50 ms; Unbihex 0.2.2 collapses at 50 ms.",
-        "Grouped bar chart of single-stream download throughput at RTT close to "
-        "zero and at 50 ms. Unbihex 0.2.2 drops to 5.8 MB/s at 50 ms, while "
-        "Xray holds 88.6 and sing-box 103.6 MB/s.",
-        456,
-    ),
-    (
-        "connections.svg",
-        "TTFB median with p95 whiskers (left) and connection rate (right).",
-        "Two-panel chart at RTT close to zero. Left: time to first byte, median "
-        "bar with p95 whisker, lower is better. Right: connections per second, "
-        "higher is better. Unbihex 0.2.2 has the highest TTFB p95 and the "
-        "lowest connection rate.",
-        428,
-    ),
-    (
-        "topology.svg",
-        "Bench path; netem touches only the tunnel port.",
-        "Diagram of the bench path: bench client to engine client over SOCKS, "
-        "engine client to engine server over REALITY or XHTTP with netem adding "
-        "delay only on the tunnel port, then engine server to the sink. SOCKS "
-        "and the path to the sink carry no added delay.",
-        252,
-    ),
+    ("throughput-rtt0.svg", "ref.fig.rtt0", 440),
+    ("throughput-rtt50.svg", "ref.fig.rtt50", 456),
+    ("connections.svg", "ref.fig.connections", 428),
+    ("topology.svg", "ref.fig.topology", 252),
 )
 
 
@@ -2541,18 +3329,16 @@ def reference_source_files(data: dict) -> list:
 
 def render_reference_section(data, copied_charts):
     source_files = reference_source_files(data)
+    english_charts = copied_charts.get("en", [])
+    russian_charts = copied_charts.get("ru", [])
 
     parts = []
     parts.append(
-        '<aside class="callout callout-quiet" aria-label="Reference hardware note">'
+        f'<aside class="callout callout-quiet" aria-label="{esc(t("ref.callout.aria"))}">'
         '<span class="callout-mark" aria-hidden="true">16</span>'
         "<div>"
-        "<strong>16-core reference, not a CI runner.</strong>"
-        "<p>These are the four images committed in <code>charts/</code> and linked "
-        "from both READMEs. They were taken with the old loopback profile: "
-        "MTU 65536, no loss, no rate cap. The values are duplicated in "
-        "<code>charts/data.json</code> because <code>results/</code> is not "
-        "committed.</p>"
+        f"<strong>{t('ref.callout.title')}</strong>"
+        f"<p>{t('ref.callout.body')}</p>"
         "</div></aside>"
     )
     parts.append(reference_meta(data))
@@ -2562,29 +3348,34 @@ def render_reference_section(data, copied_charts):
         if story:
             parts.append(f'<p class="ref-story">{story}</p>')
     else:
-        parts.append(
-            '<p class="missing-note">Reference metadata '
-            "(<code>charts/data.json</code>) is unavailable in this build.</p>"
-        )
+        parts.append(f'<p class="missing-note">{t("ref.meta_missing")}</p>')
 
     figures = []
-    for filename, caption, alt, height in REFERENCE_FIGURES:
-        if filename not in copied_charts:
+    fell_back = False
+    base = "" if LANG == "en" else "../"
+    for filename, key, height in REFERENCE_FIGURES:
+        if LANG == "ru" and filename in russian_charts:
+            source = f"{base}assets/charts/ru/{filename}"
+        elif filename in english_charts:
+            source = f"{base}assets/charts/{filename}"
+            fell_back = LANG == "ru"
+        else:
             continue
         figures.append(
             '<figure class="ref-figure">'
-            f'<img src="assets/charts/{filename}" alt="{esc(alt)}" '
+            f'<img src="{source}" alt="{esc(t(key + ".alt"))}" '
             f'width="880" height="{height}" loading="lazy" decoding="async">'
-            f"<figcaption>{esc(caption)}</figcaption>"
+            f"<figcaption>{esc(t(key + '.caption'))}</figcaption>"
             "</figure>"
+        )
+    if LANG == "ru" and fell_back:
+        parts.append(
+            f'<p class="missing-note">{t("ref.charts_fallback")}</p>'
         )
     if figures:
         parts.append("".join(figures))
     else:
-        parts.append(
-            '<p class="missing-note">No reference SVG could be copied from the '
-            "charts directory.</p>"
-        )
+        parts.append(f'<p class="missing-note">{t("ref.no_svg")}</p>')
 
     if source_files:
         items = "".join(
@@ -2594,20 +3385,17 @@ def render_reference_section(data, copied_charts):
         )
         parts.append(
             '<details class="sources">'
-            "<summary>Source files behind the reference medians</summary>"
+            f"<summary>{t('ref.sources.summary')}</summary>"
             f'<ul class="source-list">{items}</ul>'
-            '<p class="details-note">These local result files are not committed '
-            "to the repository; the medians above are copied into "
-            "<code>charts/data.json</code>.</p>"
+            f'<p class="details-note">{t("ref.sources.note")}</p>'
             "</details>"
         )
 
     return section(
         "reference",
-        "04",
-        "16-core reference",
-        "The committed charts, kept in their original visual language. Use them "
-        "to compare engines, not to compare a CI runner with this machine.",
+        t("section.04.number"),
+        t("section.04.title"),
+        t("section.04.lede"),
         "".join(parts),
     )
 
@@ -2616,70 +3404,19 @@ def render_reference_section(data, copied_charts):
 # caveats + footer
 
 
-CAVEATS = (
-    (
-        "A shaped path, still not a NIC",
-        "Current runs can emulate a WAN-like link: MTU 1500, offloads off and "
-        "0.1% loss. The reference charts used the old loopback profile "
-        "(MTU 65536, no loss). The packets still traverse loopback, not a real "
-        "NIC, driver or ISP path.",
-    ),
-    (
-        "No bandwidth cap by default",
-        "link.rate_mbit = 0 means no cap. Delay, jitter, loss, MTU and offload "
-        "settings are shaped; a default run is not a bandwidth-limited link.",
-    ),
-    (
-        "50 ms shaper limit at 8 streams",
-        "At 8 streams and 50 ms the shaper itself can be the bottleneck. qdisc "
-        "drops or overlimits are recorded; when they are above zero the cell "
-        "describes netem, not the engine.",
-    ),
-    (
-        "Evidence is a host-side sample",
-        "qdisc and socket counters come from this host's kernel. They can prove "
-        "that the shaper limited a cell; they do not turn loopback into a real "
-        "network path.",
-    ),
-    (
-        "No TUN mode",
-        "Unbihex's main mode is not measured here. TUN changes are covered by "
-        "unit tests, not by this bench.",
-    ),
-    (
-        "Competitors out of the box",
-        "The Go binaries run without sockopt tuning; Unbihex runs with its "
-        "defaults. This compares what ships, not what is possible after tuning.",
-    ),
-    (
-        "CPU time is understated",
-        "System CPU busy time is recorded, but loopback remains syscall-heavy. "
-        "CPU differences are smaller here than they would be on a real link.",
-    ),
-    (
-        "CI hardware is not the reference",
-        "GitHub-hosted runners have 4 vCPU; the reference used 16 cores. Numbers "
-        "are only comparable within one run, never across machines.",
-    ),
-    (
-        "REALITY dest is local",
-        "The TLS site behind REALITY is on this machine. Probing a real remote "
-        "site costs more than this bench shows.",
-    ),
-)
+CAVEATS = tuple(f"caveat.{index}" for index in range(1, 10))
 
 
 def render_caveats_section():
     items = "".join(
-        f"<li><strong>{esc(title)}</strong>{esc(body)}</li>"
-        for title, body in CAVEATS
+        f"<li><strong>{t(key + '.title')}</strong>{t(key + '.body')}</li>"
+        for key in CAVEATS
     )
     return section(
         "caveats",
-        "05",
-        "Caveats",
-        "Read these before quoting any number. The bench answers “which engine "
-        "is faster under identical conditions”, not “how fast will my link be”.",
+        t("section.05.number"),
+        t("section.05.title"),
+        t("section.05.lede"),
         f'<ul class="caveats">{items}</ul>',
     )
 
@@ -2687,24 +3424,57 @@ def render_caveats_section():
 def render_footer():
     return (
         '<footer class="footer">'
-        "<p><strong>xray-bench</strong> — a reproducible proxy-engine bench. "
-        "Measured on loopback paths, published from JSON.</p>"
-        "<p>Built by <code>site/build.py</code>. No JavaScript, no tracking, no "
-        "external fonts or assets. "
-        f'<a href="{REPO_URL}">Repository</a> · '
-        f'<a href="{README_EN_URL}">README (English)</a> · '
-        f'<a href="{README_RU_URL}">README (Русский)</a> · '
-        f'<a href="{WORKFLOW_URL}">CI workflow</a> · '
-        f'<a href="{CI_RESULTS_URL}">raw ci-results/</a>.</p>'
-        '<p class="footer-note">Absolute throughput is a protocol-layer '
-        "measurement on a shaped loopback path, not a speed test of a real "
-        "connection.</p>"
+        f"<p>{t('footer.line1')}</p>"
+        "<p>"
+        f"{t('footer.built')} "
+        f'<a href="{REPO_URL}">{t("link.repo")}</a> · '
+        f'<a href="{README_EN_URL}">{t("link.readme_en")}</a> · '
+        f'<a href="{README_RU_URL}">{t("link.readme_ru")}</a> · '
+        f'<a href="{WORKFLOW_URL}">{t("link.workflow")}</a> · '
+        f'<a href="{CI_RESULTS_URL}">{t("link.raw")}</a>.</p>'
+        f'<p class="footer-note">{t("footer.note")}</p>'
         "</footer>"
     )
 
 
 # --------------------------------------------------------------------------
 # page assembly
+
+
+ROUTING_SCRIPT = """(function(){try{
+var K="xb-lang",F="xb-lang-routed",page="__PAGE__",other="__OTHER__";
+try{var c=localStorage.getItem(K);if(c)return}catch(e){}
+try{if(sessionStorage.getItem(F))return}catch(e){}
+var l=(navigator.languages&&navigator.languages[0])||navigator.language||"";
+var want=l.toLowerCase().indexOf("ru")===0?"ru":"en";
+if(want!==page){try{sessionStorage.setItem(F,"1")}catch(e){}location.replace(other)}
+}catch(e){}})();"""
+
+
+def routing_script(page: str, other: str) -> str:
+    script = ROUTING_SCRIPT.replace("__PAGE__", page).replace("__OTHER__", other)
+    return f"<script>{script}</script>"
+
+
+def lang_switch(page: str) -> str:
+    en_href = "./" if page == "en" else "../"
+    ru_href = "ru/" if page == "en" else "./"
+    links = []
+    for code, href in (("en", en_href), ("ru", ru_href)):
+        current = ' aria-current="true"' if code == page else ""
+        click = (
+            "try{localStorage.setItem('xb-lang','" + code + "')}catch(e){}"
+        )
+        links.append(
+            f'<a href="{href}" hreflang="{code}" lang="{code}" '
+            f'title="{esc(t("lang." + code + "_title"))}"'
+            f'{current} onclick="{esc(click)}">{t("lang." + code)}</a>'
+        )
+    return (
+        f'<nav class="lang-switch" aria-label="{esc(t("lang.label"))}">'
+        + '<span aria-hidden="true">/</span>'.join(links)
+        + "</nav>"
+    )
 
 
 def section(section_id: str, number: str, title: str, lede: str, body: str) -> str:
@@ -2720,40 +3490,39 @@ def section(section_id: str, number: str, title: str, lede: str, body: str) -> s
     )
 
 
-def render_hero():
+def render_hero(page: str) -> str:
     return f"""
 <header class="hero">
+  <div class="hero-bar">
+    <p class="kicker"><span class="dot" aria-hidden="true"></span>xray-bench
+      <span class="sep" aria-hidden="true">/</span>{t("hero.kicker")}
+      <span class="kicker-extra"><span class="sep" aria-hidden="true">/</span>
+        REALITY · XHTTP</span></p>
+    {lang_switch(page)}
+  </div>
   <div class="hero-grid">
     <div class="hero-copy">
-      <p class="kicker"><span class="dot" aria-hidden="true"></span>xray-bench
-        <span class="sep" aria-hidden="true">/</span>proxy engine benchmark
-        <span class="sep" aria-hidden="true">/</span>REALITY · XHTTP</p>
-      <h1>Same path.<br>Same box.<br><em>Honest numbers.</em></h1>
-      <p class="lede">Xray-core, sing-box and Unbihex measured along
-        SOCKS → REALITY/XHTTP → engine server → sink: throughput, time to first
-        byte, connection rate and CPU cost, with the binary hashes, kernel, link
-        profile and qdisc/socket evidence recorded for every run.</p>
-      <p class="hero-note">Protocol-layer measurements on loopback, optionally
-        shaped to a WAN-like link. Compare cells within one run — not with a real
-        network link.</p>
-      <nav class="hero-links" aria-label="Project and data links">
-        <a href="{REPO_URL}">Repository</a>
+      <h1>{t("hero.title")}</h1>
+      <p class="lede">{t("hero.lede")}</p>
+      <p class="hero-note">{t("hero.note")}</p>
+      <nav class="hero-links" aria-label="{esc(t("hero.links_aria"))}">
+        <a href="{REPO_URL}">{t("link.repo")}</a>
         <span class="sep" aria-hidden="true">·</span>
-        <a href="{README_EN_URL}">README (English)</a>
+        <a href="{README_EN_URL}">{t("link.readme_en")}</a>
         <span class="sep" aria-hidden="true">·</span>
-        <a href="{README_RU_URL}">README (Русский)</a>
+        <a href="{README_RU_URL}">{t("link.readme_ru")}</a>
         <span class="sep" aria-hidden="true">·</span>
-        <a href="{WORKFLOW_URL}">CI workflow</a>
+        <a href="{WORKFLOW_URL}">{t("link.workflow")}</a>
         <span class="sep" aria-hidden="true">·</span>
-        <a href="{CI_RESULTS_URL}">raw ci-results/</a>
+        <a href="{CI_RESULTS_URL}">{t("link.raw")}</a>
       </nav>
     </div>
-    <aside class="spec" aria-label="Bench at a glance">
+    <aside class="spec" aria-label="{esc(t("hero.spec_aria"))}">
       <dl>
-        <div><dt>Path</dt><dd>SOCKS → REALITY / XHTTP → sink</dd></div>
-        <div><dt>Link</dt><dd>WAN-like or loopback · recorded per run</dd></div>
-        <div><dt>Measures</dt><dd>throughput · TTFB · conn/s · CPU · evidence</dd></div>
-        <div><dt>Rule</dt><dd>compare within one run</dd></div>
+        <div><dt>{t("spec.path.label")}</dt><dd>{t("spec.path.value")}</dd></div>
+        <div><dt>{t("spec.link.label")}</dt><dd>{t("spec.link.value")}</dd></div>
+        <div><dt>{t("spec.measures.label")}</dt><dd>{t("spec.measures.value")}</dd></div>
+        <div><dt>{t("spec.rule.label")}</dt><dd>{t("spec.rule.value")}</dd></div>
       </dl>
     </aside>
   </div>
@@ -2761,24 +3530,34 @@ def render_hero():
 """
 
 
-def build_page(groups, records, selected, run, ignored, invalid, scanned, state, data, copied_charts):
+def build_page(groups, records, selected, run, ignored, invalid, scanned, state, data, copied_charts, lang):
+    set_lang(lang)
+    page = LANG
+    base = "" if page == "en" else "../"
+    other = "ru/" if page == "en" else "../"
+    canonical = SITE_URL if page == "en" else SITE_URL + "ru/"
     return f"""<!doctype html>
-<html lang="en">
+<html lang="{page}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f2eee5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b0f13" media="(prefers-color-scheme: dark)">
-<meta name="description" content="A reproducible proxy-engine benchmark: Xray-core, sing-box and Unbihex on loopback or a shaped WAN-like link, with throughput, TTFB, connection rate, CPU, validity and qdisc/socket evidence.">
-<title>xray-bench — proxy engine benchmark</title>
+<meta name="description" content="{esc(t("meta.description"))}">
+<title>{esc(t("meta.title"))}</title>
+{routing_script(page, other)}
+<link rel="canonical" href="{canonical}">
+<link rel="alternate" hreflang="en" href="{SITE_URL}">
+<link rel="alternate" hreflang="ru" href="{SITE_URL}ru/">
+<link rel="alternate" hreflang="x-default" href="{SITE_URL}">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230e7490'/%3E%3Crect x='7' y='17' width='5' height='9' fill='%23fff'/%3E%3Crect x='14' y='11' width='5' height='15' fill='%23fff'/%3E%3Crect x='21' y='7' width='5' height='19' fill='%23d97706'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="{base}assets/style.css">
 </head>
 <body>
-<a class="skip" href="#main">Skip to content</a>
+<a class="skip" href="#main">{t("page.skip")}</a>
 <div class="page">
-{render_hero()}
+{render_hero(page)}
 <main id="main">
 {render_run_section(records, selected, groups, run, ignored, invalid, scanned, state)}
 {render_results_section(groups)}
@@ -2891,11 +3670,16 @@ pre code{border:0;background:none;padding:0;font-size:1em}
 .hero{padding:clamp(.8rem,3vw,2rem) 0 clamp(2.2rem,6vw,4rem);border-bottom:1px solid var(--line)}
 .hero-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(17rem,.55fr);gap:clamp(2rem,6vw,5rem);align-items:end}
 .hero-copy{min-width:0}
-.kicker{display:flex;flex-wrap:wrap;align-items:center;gap:.55rem;margin:0;font-family:var(--mono);font-size:.68rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.hero-bar{display:flex;justify-content:space-between;align-items:center;gap:1rem .9rem;flex-wrap:wrap;margin:0 0 1.3rem}
+.lang-switch{display:flex;align-items:center;gap:.5rem;font-family:var(--mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase}
+.lang-switch a{padding:.16rem .42rem;border:1px solid var(--line-2);color:var(--muted);text-decoration:none;line-height:1.3}
+.lang-switch a:hover{color:var(--ink);border-color:var(--ink-2)}
+.lang-switch a[aria-current]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.kicker{display:flex;flex-wrap:wrap;align-items:center;gap:.55rem;flex:1 1 12rem;min-width:0;margin:0;font-family:var(--mono);font-size:.68rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
 .kicker .dot{width:.42rem;height:.42rem;border-radius:50%;background:var(--accent-2);flex:none}
 .kicker .sep{color:var(--line-2)}
-h1{font-family:var(--serif);font-weight:600;font-size:clamp(2.7rem,7.4vw,5.35rem);line-height:.94;letter-spacing:-.035em;margin:1.1rem 0 1.2rem;text-wrap:balance}
-h1 em{font-style:italic;color:var(--accent-2)}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(2.35rem,4.8vw,3.35rem);line-height:1;letter-spacing:-.03em;margin:1.1rem 0 1.2rem;text-wrap:balance}
+h1 .h1-name{white-space:nowrap}
 .lede{max-width:40rem;margin:0 0 1.15rem;font-size:clamp(1rem,1.6vw,1.18rem);line-height:1.55;color:var(--ink-2)}
 .hero-note{max-width:40rem;margin:0 0 1.5rem;padding-left:.8rem;border-left:2px solid var(--accent-2);font-family:var(--mono);font-size:.7rem;line-height:1.55;color:var(--muted)}
 .hero-links{display:flex;flex-wrap:wrap;align-items:center;gap:.45rem .7rem;font-size:.84rem;line-height:1.5}
@@ -3136,7 +3920,7 @@ tbody tr.is-invalid th:first-child{border-left:2px solid var(--warn-line)}
   .t-binaries th{font-family:var(--sans);font-size:.86rem;font-weight:650;color:var(--ink)}
   .t-binaries td.bin-version{font-family:var(--mono);font-size:.68rem;color:var(--ink-2);line-height:1.5}
   .t-binaries td.bin-sha{margin-top:.15rem}
-  .t-binaries td.bin-sha::before{content:"sha256 ";font-size:.56rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .t-binaries td.bin-sha::before{content:attr(data-label) " ";font-size:.56rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 }
 @media (max-width:520px){
   .page{padding-left:.9rem;padding-right:.9rem}
@@ -3155,15 +3939,16 @@ tbody tr.is-invalid th:first-child{border-left:2px solid var(--warn-line)}
   .group-meta{font-size:.56rem}
   .chart-head{gap:.4rem}
   .legend{font-size:.58rem}
+  .kicker-extra{display:none}
   th,td{padding:.6rem .65rem}
   .callout{grid-template-columns:1fr;gap:.5rem}
   .callout-mark{width:1.35rem;height:1.35rem}
-  h1{font-size:clamp(2.5rem,12.5vw,3.6rem)}
 }
 @media (max-width:380px){
   .chart{--labelw:2.4rem;--valuew:4.1rem}
   .chart-ttfb .chart{--valuew:4.8rem}
   .bar-row,.axis{gap:.4rem}
+  .kicker{font-size:.55rem;letter-spacing:.07em;gap:.4rem}
 }
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
@@ -3186,14 +3971,19 @@ tbody tr.is-invalid th:first-child{border-left:2px solid var(--warn-line)}
 
 def copy_reference_charts(charts_dir: Path, out_dir: Path):
     target = out_dir / "assets" / "charts"
-    copied = []
-    for filename in CHART_FILES:
-        source = charts_dir / filename
-        if not source.is_file():
-            continue
-        target.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source, target / filename)
-        copied.append(filename)
+    copied = {"en": [], "ru": []}
+    for lang, source_dir in (("en", charts_dir), ("ru", charts_dir / "ru")):
+        for filename in CHART_FILES:
+            source = source_dir / filename
+            if not source.is_file():
+                continue
+            if lang == "ru":
+                (target / "ru").mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, target / "ru" / filename)
+            else:
+                target.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, target / filename)
+            copied[lang].append(filename)
     return copied
 
 
@@ -3207,12 +3997,11 @@ def load_reference_data(charts_dir: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def build(results_dir: Path, charts_dir: Path, out_dir: Path):
+def build(results_dir: Path, charts_dir: Path, out_dir: Path, lang: str = "all"):
     records, scanned, ignored, invalid, state = load_results(results_dir)
     runs = split_runs(records)
     run = runs[-1] if runs else []
     selected = select_latest(run) if run else []
-    groups = build_groups(selected)
     data = load_reference_data(charts_dir)
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -3227,20 +4016,30 @@ def build(results_dir: Path, charts_dir: Path, out_dir: Path):
     (assets / "style.css").write_text(STYLESHEET, encoding="utf-8", newline="\n")
     copied = copy_reference_charts(charts_dir, out_dir)
 
-    page = build_page(
-        groups,
-        records,
-        selected,
-        run,
-        ignored,
-        invalid,
-        scanned,
-        state,
-        data,
-        copied,
-    )
-    (out_dir / "index.html").write_text(page, encoding="utf-8", newline="\n")
-    return selected, groups, copied, scanned, ignored, invalid
+    written = []
+    languages = ("en", "ru") if lang == "all" else (lang,)
+    groups = []
+    for code in languages:
+        set_lang(code)
+        groups = build_groups(selected)
+        page = build_page(
+            groups,
+            records,
+            selected,
+            run,
+            ignored,
+            invalid,
+            scanned,
+            state,
+            data,
+            copied,
+            code,
+        )
+        target = out_dir / "index.html" if code == "en" else out_dir / "ru" / "index.html"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(page, encoding="utf-8", newline="\n")
+        written.append(target)
+    return selected, groups, copied, scanned, ignored, invalid, written
 
 
 def main(argv=None):
@@ -3263,6 +4062,12 @@ def main(argv=None):
         metavar="DIR",
         help="output directory (default: <repo>/site/dist)",
     )
+    parser.add_argument(
+        "--lang",
+        choices=("all", "en", "ru"),
+        default="all",
+        help="page language to build (default: all)",
+    )
     args = parser.parse_args(argv)
 
     results_dir = Path(args.results).expanduser() if args.results else repo_root / "ci-results"
@@ -3275,11 +4080,15 @@ def main(argv=None):
     if out_resolved in (results_dir.resolve(), charts_dir.resolve()):
         parser.error("output directory must not be the results or charts directory")
 
-    selected, groups, copied, scanned, ignored, invalid = build(
-        results_dir, charts_dir, out_dir
+    selected, groups, copied, scanned, ignored, invalid, written = build(
+        results_dir, charts_dir, out_dir, args.lang
     )
-    print(f"wrote {out_dir / 'index.html'}")
-    print(f"copied {len(copied)} reference chart{'s' if len(copied) != 1 else ''}")
+    for path in written:
+        print(f"wrote {path}")
+    print(
+        f"copied {len(copied['en'])} English and {len(copied['ru'])} Russian "
+        "reference charts"
+    )
     print(
         f"results: {len(selected)} file{'s' if len(selected) != 1 else ''} charted, "
         f"{len(groups)} scenario{'s' if len(groups) != 1 else ''}, "
