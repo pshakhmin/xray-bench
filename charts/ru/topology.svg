@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 252" width="100%" role="img" aria-labelledby="chart-title chart-desc" font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+<title id="chart-title">Топология</title>
+<desc id="chart-desc">Схема пути стенда. Клиент стенда подключается к клиенту движка через SOCKS, клиент движка — к серверу движка через REALITY/XHTTP, при этом netem добавляет по 25 мс в каждую сторону только на порту туннеля, затем сервер движка общается с приёмником. Приёмник — адрес TEST-NET-3, 203.0.113.7, порт 19000, на интерфейсе loopback. Рукопожатие SOCKS и путь от сервера к приёмнику не добавляют задержки, поэтому TTFB не завышается.</desc>
+<text x="32" y="38" font-size="19" fill="#747987" font-weight="650">Топология</text>
+<text x="32" y="58" font-size="11.5" fill="#747987">Путь стенда и единственное место, где применяется эмулируемая задержка</text>
+<line x1="32" y1="78" x2="56" y2="78" stroke="#7f8999" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text x="66" y="82" font-size="10" fill="#747987">netem 25+25 мс · только порт туннеля, в обе стороны · RTT 50 мс (выкл. при RTT ≈ 0)</text>
+<line x1="32" y1="96" x2="56" y2="96" stroke="#7f8999" stroke-width="1.5"/>
+<text x="66" y="100" font-size="10" fill="#747987">без добавленной задержки · рукопожатие SOCKS, сервер → приёмник</text>
+<text x="32" y="130" font-size="10" fill="#747987">Самопара: один и тот же движок с обеих сторон · приёмник на TEST-NET-3 (203.0.113.7) на lo</text>
+<text x="848" y="130" font-size="10" fill="#747987" text-anchor="end" font-weight="500">lo · loopback · 16 ядер</text>
+<rect x="32" y="138" width="816" height="96" rx="12" fill="none" stroke="#7f8999" stroke-opacity="0.55" stroke-width="1"/>
+<rect x="58" y="156" width="118" height="60" rx="8" fill="none" stroke="#7f8999" stroke-opacity="0.95" stroke-width="1.2"/>
+<text x="117" y="182" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="650">клиент стенда</text>
+<text x="117" y="200" font-size="10" fill="#747987" text-anchor="middle">curl · 1–8 потоков</text>
+<rect x="240" y="156" width="136" height="60" rx="8" fill="none" stroke="#7f8999" stroke-opacity="0.95" stroke-width="1.2"/>
+<text x="308" y="182" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="650">клиент движка</text>
+<text x="308" y="200" font-size="9" fill="#747987" text-anchor="middle">SOCKS внутрь · туннель наружу</text>
+<rect x="486" y="156" width="136" height="60" rx="8" fill="none" stroke="#7f8999" stroke-opacity="0.95" stroke-width="1.2"/>
+<text x="554" y="182" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="650">сервер движка</text>
+<text x="554" y="200" font-size="9" fill="#747987" text-anchor="middle">туннель внутрь · цель наружу</text>
+<rect x="692" y="156" width="130" height="60" rx="8" fill="none" stroke="#7f8999" stroke-opacity="0.95" stroke-width="1.2"/>
+<text x="757" y="182" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="650">приёмник</text>
+<text x="757" y="200" font-size="10" fill="#747987" text-anchor="middle">203.0.113.7:19000</text>
+<line x1="176" y1="186" x2="233" y2="186" stroke="#7f8999" stroke-width="1.5"/>
+<polygon points="240,186 231,181.5 231,190.5" fill="#7f8999"/>
+<text x="208" y="172" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">SOCKS</text>
+<text x="208" y="202" font-size="9.5" fill="#747987" text-anchor="middle">без задержки</text>
+<line x1="376" y1="186" x2="479" y2="186" stroke="#7f8999" stroke-width="1.5" stroke-dasharray="4 3"/>
+<polygon points="486,186 477,181.5 477,190.5" fill="#7f8999"/>
+<text x="431" y="172" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">REALITY/XHTTP</text>
+<text x="431" y="202" font-size="9.5" fill="#747987" text-anchor="middle" font-weight="600">netem 25+25 мс</text>
+<line x1="622" y1="186" x2="685" y2="186" stroke="#7f8999" stroke-width="1.5"/>
+<polygon points="692,186 683,181.5 683,190.5" fill="#7f8999"/>
+<text x="657" y="172" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">TCP</text>
+<text x="657" y="202" font-size="9.5" fill="#747987" text-anchor="middle">без задержки</text>
+</svg>

@@ -52,7 +52,8 @@ table directly.
 
 The charts and the table come from the same runs. `results/` is not committed, so the medians are
 duplicated in [`charts/data.json`](charts/data.json) with links to the source files; regenerate the
-images with `python3 charts/make_charts.py`.
+images with `python3 charts/make_charts.py` (Russian variants: `--lang ru`, written to
+`charts/ru/` and used by the Russian README).
 
 ## What is measured
 

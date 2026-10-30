@@ -32,11 +32,11 @@ GSO/TSO/GRO off, потери 0,1%, задержка `netem` только на �
 Первый прогон стенда, до появления профиля `wan`: MTU 65536, offloads включены, без потерь,
 16 ядер, Unbihex 0.2.2. С CI-цифрами выше его не сравнивайте.
 
-![Throughput при RTT≈0: Xray 360/806/341, sing-box 540/1306/530, Unbihex 437/1011/386 MB/s](charts/throughput-rtt0.svg)
+![Throughput при RTT≈0: Xray 360/806/341, sing-box 540/1306/530, Unbihex 437/1011/386 MB/s](charts/ru/throughput-rtt0.svg)
 
-![Один поток при RTT≈0 и 50 мс: Unbihex падает с 437.5 до 5.8 MB/s, Xray держит 88.6 и sing-box 103.6](charts/throughput-rtt50.svg)
+![Один поток при RTT≈0 и 50 мс: Unbihex падает с 437.5 до 5.8 MB/s, Xray держит 88.6 и sing-box 103.6](charts/ru/throughput-rtt50.svg)
 
-![TTFB и темп соединений при RTT≈0: лучший TTFB у sing-box 3.34 мс, лучший conn/s тоже у него (563); у Unbihex худший p95 11.59 мс и низший conn/s 276](charts/connections.svg)
+![TTFB и темп соединений при RTT≈0: лучший TTFB у sing-box 3.34 мс, лучший conn/s тоже у него (563); у Unbihex худший p95 11.59 мс и низший conn/s 276](charts/ru/connections.svg)
 
 | Движок (своя пара) | ↓1, RTT≈0 | ↓8, RTT≈0 | ↑1, RTT≈0 | TTFB | conn/s | ↓1, RTT 50 мс | TTFB, RTT 50 |
 |---|---|---|---|---|---|---|---|
@@ -52,7 +52,8 @@ GSO/TSO/GRO off, потери 0,1%, задержка `netem` только на �
 
 Графики и таблица собраны из одних и тех же прогонов. `results/` в репозиторий не попадает,
 поэтому медианы продублированы в [`charts/data.json`](charts/data.json) вместе со ссылками на
-исходные файлы; пересобрать картинки — `python3 charts/make_charts.py`.
+исходные файлы; пересобрать картинки — `python3 charts/make_charts.py` (русские версии —
+`--lang ru`, они лежат в `charts/ru/`).
 
 ## Что измеряется
 
@@ -96,7 +97,7 @@ GSO/TSO/GRO выключены, задержка rtt/2 в каждую стор�
 
 ## Топология
 
-![Стенд: bench client → engine client → REALITY/XHTTP → engine server → sink; netem 25+25 мс только на порту туннеля, SOCKS и путь до sink без задержки](charts/topology.svg)
+![Стенд: bench client → engine client → REALITY/XHTTP → engine server → sink; netem 25+25 мс только на порту туннеля, SOCKS и путь до sink без задержки](charts/ru/topology.svg)
 
 - sink слушает `203.0.113.7:19000` — адрес из TEST-NET-3, добавленный на `lo`. Нужен, чтобы
   маршрутизация клиентов не уводила цель в direct: приватные адреса sing-box/Unbihex

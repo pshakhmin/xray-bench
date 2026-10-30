@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440" width="100%" role="img" aria-labelledby="chart-title chart-desc" font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+<title id="chart-title">Пропускная способность при RTT ≈ 0</title>
+<desc id="chart-desc">Сгруппированная столбчатая диаграмма медианной пропускной способности в MB/s при RTT, близком к нулю, для Xray 26.10.29, sing-box 1.14.4 и Unbihex 0.2.2. Для каждого движка показаны скачивание одним потоком, скачивание восемью потоками и отдача одним потоком. sing-box 1.14.4 лидирует по всем трём метрикам (539.8, 1306.4 и 529.7 MB/s); Unbihex 0.2.2 показывает 437.5, 1011.0 и 386.0 MB/s.</desc>
+<text x="32" y="38" font-size="19" fill="#747987" font-weight="650">Пропускная способность при RTT ≈ 0</text>
+<text x="32" y="58" font-size="11.5" fill="#747987">Медиана MB/s через SOCKS · больше — лучше</text>
+<text x="56" y="95" font-size="10" fill="#747987" text-anchor="end" font-weight="500">MB/s</text>
+<line x1="64" y1="360" x2="848" y2="360" stroke="#7f8999" stroke-width="1"/>
+<text x="56" y="363.4" font-size="10" fill="#747987" text-anchor="end">0</text>
+<line x1="64" y1="323.43" x2="848" y2="323.43" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="56" y="326.83" font-size="10" fill="#747987" text-anchor="end">200</text>
+<line x1="64" y1="286.86" x2="848" y2="286.86" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="56" y="290.26" font-size="10" fill="#747987" text-anchor="end">400</text>
+<line x1="64" y1="250.29" x2="848" y2="250.29" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="56" y="253.69" font-size="10" fill="#747987" text-anchor="end">600</text>
+<line x1="64" y1="213.71" x2="848" y2="213.71" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="56" y="217.11" font-size="10" fill="#747987" text-anchor="end">800</text>
+<line x1="64" y1="177.14" x2="848" y2="177.14" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="56" y="180.54" font-size="10" fill="#747987" text-anchor="end">1000</text>
+<line x1="64" y1="140.57" x2="848" y2="140.57" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="56" y="143.97" font-size="10" fill="#747987" text-anchor="end">1200</text>
+<line x1="64" y1="104" x2="848" y2="104" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
+<text x="56" y="107.4" font-size="10" fill="#747987" text-anchor="end">1400</text>
+<rect x="137.67" y="294.06" width="34" height="65.94" rx="3" fill="#0e7490"/>
+<text x="154.67" y="288.06" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">360.6</text>
+<text x="154.67" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓1</text>
+<rect x="177.67" y="212.56" width="34" height="147.44" rx="3" fill="#0e7490"/>
+<text x="194.67" y="206.56" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">806.3</text>
+<text x="194.67" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓8</text>
+<rect x="217.67" y="297.68" width="34" height="62.32" rx="3" fill="#0e7490"/>
+<text x="234.67" y="291.68" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">340.8</text>
+<text x="234.67" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↑1</text>
+<text x="194.67" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">Xray 26.10.29</text>
+<rect x="399" y="261.29" width="34" height="98.71" rx="3" fill="#7c3aed"/>
+<text x="416" y="255.29" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">539.8</text>
+<text x="416" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓1</text>
+<rect x="439" y="121.12" width="34" height="238.88" rx="3" fill="#7c3aed"/>
+<text x="456" y="115.12" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">1306.4</text>
+<text x="456" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓8</text>
+<rect x="479" y="263.14" width="34" height="96.86" rx="3" fill="#7c3aed"/>
+<text x="496" y="257.14" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">529.7</text>
+<text x="496" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↑1</text>
+<text x="456" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">sing-box 1.14.4</text>
+<rect x="660.33" y="280" width="34" height="80" rx="3" fill="#b45309"/>
+<text x="677.33" y="274" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">437.5</text>
+<text x="677.33" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓1</text>
+<rect x="700.33" y="175.13" width="34" height="184.87" rx="3" fill="#b45309"/>
+<text x="717.33" y="169.13" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">1011.0</text>
+<text x="717.33" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓8</text>
+<rect x="740.33" y="289.42" width="34" height="70.58" rx="3" fill="#b45309"/>
+<text x="757.33" y="283.42" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">386.0</text>
+<text x="757.33" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↑1</text>
+<text x="717.33" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">Unbihex 0.2.2</text>
+<text x="32" y="426" font-size="10" fill="#747987">Медианы · loopback, 16 ядер · netem только на порту туннеля</text>
+</svg>
