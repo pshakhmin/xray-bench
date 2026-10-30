@@ -38,13 +38,11 @@ GRID_OPACITY = 0.30
 
 BAR_RADIUS = 3
 
-# Engine -> colour for every chart. The two Unbihex builds share the amber
-# family (dark = stock, bright = PR) so they read as one engine, two builds.
+# Engine -> colour for every chart. Unbihex keeps the amber shade.
 COLOR = {
     "xray": "#0e7490",
     "singbox": "#7c3aed",
     "unbihex_stock": "#b45309",
-    "unbihex_pr": "#d97706",
 }
 
 
@@ -205,12 +203,10 @@ def chart_throughput_rtt0(data):
 
     desc = (
         "Grouped bar chart of median throughput in MB/s at RTT close to zero for "
-        "Xray 26.10.29, sing-box 1.14.4, Unbihex 0.2.2 (stock) and Unbihex 0.2.2 + "
-        "PR #18. Each engine shows single-stream download, eight-stream download "
-        "and single-stream upload. sing-box 1.14.4 leads all three metrics "
-        "(5310, 1306.4 and 529.7 MB/s). Unbihex stock and PR are the same 0.2.2 "
-        "build; the PR is ahead of stock on eight-stream download and close to it "
-        "on single-stream download and upload."
+        "Xray 26.10.29, sing-box 1.14.4 and Unbihex 0.2.2. Each engine shows "
+        "single-stream download, eight-stream download and single-stream upload. "
+        "sing-box 1.14.4 leads all three metrics (539.8, 1306.4 and 529.7 MB/s); "
+        "Unbihex 0.2.2 records 437.5, 1011.0 and 386.0 MB/s."
     )
     lines = start_svg(440, "Throughput at RTT ≈ 0", desc)
     header(
@@ -252,10 +248,9 @@ def chart_throughput_rtt50(data):
 
     desc = (
         "Single-stream download throughput in MB/s at RTT close to zero and at "
-        "50 ms of emulated RTT. Xray falls from 360.6 to 88.6, sing-box from "
-        "5310 to 103.6, Unbihex 0.2.2 + PR #18 from 430.3 to 85.8 MB/s. "
-        "Unbihex 0.2.2 (stock) collapses from 437.5 to 5.8 MB/s, a 75 times drop, "
-        "while the other three engines stay between 85.8 and 103.6 MB/s."
+        "50 ms of emulated RTT. Xray falls from 360.6 to 88.6 and sing-box from "
+        "539.8 to 103.6 MB/s. Unbihex 0.2.2 collapses from 437.5 to 5.8 MB/s, a "
+        "75 times drop, while Xray and sing-box stay at 88.6 and 103.6 MB/s."
     )
     lines = start_svg(456, "Single-stream download: RTT ≈ 0 vs 50 ms", desc)
     header(
@@ -276,9 +271,9 @@ def chart_throughput_rtt50(data):
     )
     lines.append(text(798, 88, "RTT 50 ms", 10.5, TEXT))
 
-    stock_x = None
-    stock_left = None
-    stock_top = None
+    drop_x = None
+    drop_left = None
+    drop_top = None
     drop_y = None
     for index, engine in enumerate(engines):
         gx = left + index * group_w
@@ -298,24 +293,24 @@ def chart_throughput_rtt50(data):
             lines.append(text(x + bar_w / 2, y - 6, f1(value), 10, TEXT, "middle", 600))
         lines.append(text(gx + group_w / 2, base + 40, engine["label"], 11.5, TEXT, "middle", 600))
         if engine["id"] == "unbihex_stock":
-            stock_x = gx + offset
-            stock_left = gx + offset + bar_w + gap
-            stock_top = base - (zero / vmax) * (base - top)
+            drop_x = gx + offset
+            drop_left = gx + offset + bar_w + gap
+            drop_top = base - (zero / vmax) * (base - top)
             drop_y = base - (loaded / vmax) * (base - top)
 
-    # Honest 0-based axis plus an explicit drop marker for the stock group.
-    stock_zero = data["rtt0"]["unbihex_stock"]["down1"]
-    stock_loaded = data["rtt50"]["unbihex_stock"]["down1"]
-    factor = stock_zero / stock_loaded
-    marker_x = stock_x - 12
-    lines.append(line(stock_x, stock_top, marker_x, stock_top, LINE, 1.1, dash="3 3"))
-    lines.append(line(marker_x, stock_top, marker_x, drop_y, LINE, 1.1, dash="3 3"))
-    lines.append(line(marker_x, drop_y, stock_left - 9, drop_y, LINE, 1.1, dash="3 3"))
-    lines.append(arrow_head(stock_left - 3, drop_y, direction=1, size=4, fill=LINE))
+    # Honest 0-based axis plus an explicit drop marker for the Unbihex group.
+    unbihex_zero = data["rtt0"]["unbihex_stock"]["down1"]
+    unbihex_loaded = data["rtt50"]["unbihex_stock"]["down1"]
+    factor = unbihex_zero / unbihex_loaded
+    marker_x = drop_x - 12
+    lines.append(line(drop_x, drop_top, marker_x, drop_top, LINE, 1.1, dash="3 3"))
+    lines.append(line(marker_x, drop_top, marker_x, drop_y, LINE, 1.1, dash="3 3"))
+    lines.append(line(marker_x, drop_y, drop_left - 9, drop_y, LINE, 1.1, dash="3 3"))
+    lines.append(arrow_head(drop_left - 3, drop_y, direction=1, size=4, fill=LINE))
     # Horizontal callout, clear of gridlines, directly beside the tiny bar.
     lines.append(
         text(
-            stock_left + bar_w + 8,
+            drop_left + bar_w + 8,
             drop_y - 5,
             f"{f0(factor)}× drop",
             10,
@@ -356,11 +351,10 @@ def chart_connections(data):
     desc = (
         "Two panels at RTT close to zero. Left: time to first byte in ms, median "
         "bar and p95 whisker, lower is better. Right: connections per second, "
-        "higher is better. Unbihex 0.2.2 + PR #18 has the lowest TTFB at 1.98 ms "
-        "with a p95 of 8.08 ms and the highest connection rate at 938 conn/s. "
-        "Unbihex 0.2.2 (stock) has the highest p95 at 11.59 ms and the lowest "
-        "connection rate at 276 conn/s. Xray: 3.95 ms median, 4.97 ms p95, "
-        "448 conn/s. sing-box: 3.34 ms median, 4.03 ms p95, 563 conn/s."
+        "higher is better. Unbihex 0.2.2 has the highest p95 at 11.59 ms and the "
+        "lowest connection rate at 275.8 conn/s. Xray: 3.95 ms median, 4.97 ms "
+        "p95, 448 conn/s. sing-box: 3.34 ms median, 4.03 ms p95, 563 conn/s. "
+        "Unbihex 0.2.2: 5.57 ms median."
     )
     lines = start_svg(428, "Latency and connection rate at RTT ≈ 0", desc)
     header(
@@ -377,7 +371,7 @@ def chart_connections(data):
     for index, engine in enumerate(engines):
         values = data["rtt0"][engine["id"]]
         median, p95 = values["ttfb_median"], values["ttfb_p95"]
-        cx = plot_a[0] + 44 + index * slot
+        cx = (plot_a[0] + plot_a[1]) / 2 + (index - (len(engines) - 1) / 2) * slot
         height = (median / vmax_a) * (base - top)
         y_top = base - height
         y_p95 = base - (p95 / vmax_a) * (base - top)
@@ -397,7 +391,7 @@ def chart_connections(data):
 
     for index, engine in enumerate(engines):
         value = data["rtt0"][engine["id"]]["conns_per_sec"]
-        cx = plot_b[0] + 44 + index * slot
+        cx = (plot_b[0] + plot_b[1]) / 2 + (index - (len(engines) - 1) / 2) * slot
         height = (value / vmax_b) * (base - top)
         y_top = base - height
         lines.append(bar(cx - bar_w / 2, y_top, bar_w, height, COLOR[engine["id"]]))
@@ -406,7 +400,7 @@ def chart_connections(data):
     # shared engine labels under both panels
     for index, engine in enumerate(engines):
         for plot in (plot_a, plot_b):
-            cx = plot[0] + 44 + index * slot
+            cx = (plot[0] + plot[1]) / 2 + (index - (len(engines) - 1) / 2) * slot
             first, second = engine["label_lines"]
             lines.append(text(cx, 372, first, 10, TEXT, "middle", 600))
             lines.append(text(cx, 386, second, 10, TEXT, "middle", 400))

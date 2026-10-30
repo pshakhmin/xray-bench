@@ -24,39 +24,35 @@ fresh numbers, charts and provenance are on **<https://pshakhmin.github.io/xray-
 | Unbihex 0.2.3 (`test_server` 0.0.1) | 108 [108–108] | 133 | 119 | 1.6 ms | 150 | 19.3 | 153 ms |
 
 Run of 2026-10-30, commit `8dc2f29`; raw JSON lives in [`ci-results/`](ci-results) and the page is
-rebuilt by `python3 site/build.py`. Medians of two runs, min–max in brackets. The runner has
+rebuilt by `python3 site/build.py`. Medians of three runs, min–max in brackets. The runner has
 4 vCPU: compare cells only within one run, never against other hardware.
 
 ### Reference run: 16 cores, loopback (historical)
 
 The first run of the stand, before the `wan` profile existed: MTU 65536, offloads on, no loss,
-16 cores. Kept as the baseline for the PR #18 story; do not compare it with the CI numbers above.
+16 cores, Unbihex 0.2.2. Do not compare it with the CI numbers above.
 
-![Throughput at RTT≈0: Xray 360/806/341, sing-box 540/1306/530, Unbihex stock 437/1011/386, Unbihex + PR #18 430/1163/411 MB/s](charts/throughput-rtt0.svg)
+![Throughput at RTT≈0: Xray 360/806/341, sing-box 540/1306/530, Unbihex 437/1011/386 MB/s](charts/throughput-rtt0.svg)
 
-![Single stream at RTT≈0 and 50 ms: Unbihex stock falls from 437.5 to 5.8 MB/s, the others hold 86–104](charts/throughput-rtt50.svg)
+![Single stream at RTT≈0 and 50 ms: Unbihex falls from 437.5 to 5.8 MB/s while Xray holds 88.6 and sing-box 103.6](charts/throughput-rtt50.svg)
 
-![TTFB and connection rate at RTT≈0: best TTFB is Unbihex + PR #18 (1.98 ms), best conn/s is the same build (938)](charts/connections.svg)
+![TTFB and connection rate at RTT≈0: best TTFB is sing-box at 3.34 ms and the best conn/s is the same engine (563); Unbihex has the worst p95 (11.59 ms) and the lowest conn/s (276)](charts/connections.svg)
 
 | Engine (self-pair) | ↓1, RTT≈0 | ↓8, RTT≈0 | ↑1, RTT≈0 | TTFB | conn/s | ↓1, RTT 50 ms | TTFB, RTT 50 |
 |---|---|---|---|---|---|---|---|
 | Xray 26.10.29 | 361 MB/s | 806 MB/s | 341 MB/s | 3.95 ms | 448 | 88.6 MB/s | 154 ms |
 | sing-box 1.14.4 | 540 MB/s | 1306 MB/s | 530 MB/s | 3.34 ms | 563 | 103.6 MB/s | 154 ms |
-| Unbihex 0.2.2 (stock) | 437 MB/s | 1011 MB/s | 386 MB/s | 5.57 ms | 276 | 5.8 MB/s | 156 ms |
-| Unbihex 0.2.2 + [PR #18](https://github.com/crystalmasta/unbihex/pull/18) | 430 MB/s | 1163 MB/s | 411 MB/s | 1.98 ms | 938 | 85.8 MB/s | 152 ms |
+| Unbihex 0.2.2 | 437 MB/s | 1011 MB/s | 386 MB/s | 5.57 ms | 276 | 5.8 MB/s | 156 ms |
 
 These are protocol-layer numbers on loopback: compare cells with each other, not with a real link
-(see [Limitations](#limitations-important)). "PR #18" is the branch with the TUN, socket-buffer and
-REALITY changes from [unbihex#18](https://github.com/crystalmasta/unbihex/pull/18); "stock" is the
-released 0.2.2.
+(see [Limitations](#limitations-important)). Unbihex here is the released 0.2.2; since 0.2.3 the
+release is `unbihex-cli` plus a separate `test_server` with its own config schema, which the stand
+installs by default and measures as `unbihex_release` — do not compare those numbers with this
+table directly.
 
 The charts and the table come from the same runs. `results/` is not committed, so the medians are
 duplicated in [`charts/data.json`](charts/data.json) with links to the source files; regenerate the
 images with `python3 charts/make_charts.py`.
-
-The Unbihex row is about the **engine build** (engine 0.1.1: stock 0.2.2 versus the PR #18 branch).
-Since 0.2.3 the Unbihex release is `unbihex-cli` plus a separate `test_server` with its own config
-schema; the stand installs those by default and measures them as `unbihex_release`.
 
 ## What is measured
 
@@ -132,8 +128,9 @@ metrics where the gap is a multiple of the spread.
 version and sha256 in [`versions.env`](versions.env).
 
 Engines come as release binaries: Xray and sing-box from their official archives, Unbihex as
-`unbihex-cli` plus `test_server`. To build Unbihex from source (e.g. the PR #18 branch, which has no
-release): `UNBIHEX_REPO=/path/to/unbihex ./setup.sh`.
+`unbihex-cli` plus `test_server`. For a build that is not a release (your own branch or a local
+patch) there is an escape hatch: `UNBIHEX_REPO=/path/to/unbihex ./setup.sh` builds the engine from
+source.
 
 ## CI and Pages
 

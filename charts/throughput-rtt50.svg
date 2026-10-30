@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 456" width="100%" role="img" aria-labelledby="chart-title chart-desc" font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
 <title id="chart-title">Single-stream download: RTT ≈ 0 vs 50 ms</title>
-<desc id="chart-desc">Single-stream download throughput in MB/s at RTT close to zero and at 50 ms of emulated RTT. Xray falls from 360.6 to 88.6, sing-box from 5310 to 103.6, Unbihex 0.2.2 + PR #18 from 430.3 to 85.8 MB/s. Unbihex 0.2.2 (stock) collapses from 437.5 to 5.8 MB/s, a 75 times drop, while the other three engines stay between 85.8 and 103.6 MB/s.</desc>
+<desc id="chart-desc">Single-stream download throughput in MB/s at RTT close to zero and at 50 ms of emulated RTT. Xray falls from 360.6 to 88.6 and sing-box from 539.8 to 103.6 MB/s. Unbihex 0.2.2 collapses from 437.5 to 5.8 MB/s, a 75 times drop, while Xray and sing-box stay at 88.6 and 103.6 MB/s.</desc>
 <text x="32" y="38" font-size="19" fill="#747987" font-weight="650">Single-stream download: RTT ≈ 0 vs 50 ms</text>
 <text x="32" y="58" font-size="11.5" fill="#747987">↓1 median MB/s · higher is better</text>
 <text x="56" y="95" font-size="10" fill="#747987" text-anchor="end" font-weight="500">MB/s</text>
@@ -22,31 +22,26 @@
 <text x="717" y="88" font-size="10.5" fill="#747987">RTT ≈ 0</text>
 <rect x="781" y="78.5" width="11" height="11" rx="2.5" fill="#b5bbc4" stroke="#7f8999" stroke-width="1"/>
 <text x="798" y="88" font-size="10.5" fill="#747987">RTT 50 ms</text>
-<rect x="104" y="206.14" width="52" height="153.86" rx="3" fill="#0e7490"/>
-<text x="130" y="200.14" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">360.6</text>
-<rect x="168" y="322.2" width="52" height="37.8" rx="3" fill="#73aebf" stroke="#0e7490" stroke-width="1.2"/>
-<text x="194" y="316.2" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">88.6</text>
-<text x="162" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">Xray 26.10.29</text>
-<rect x="300" y="129.69" width="52" height="230.31" rx="3" fill="#7c3aed"/>
-<text x="326" y="123.69" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">539.8</text>
-<rect x="364" y="315.8" width="52" height="44.2" rx="3" fill="#b38df5" stroke="#7c3aed" stroke-width="1.2"/>
-<text x="390" y="309.8" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">103.6</text>
-<text x="358" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">sing-box 1.14.4</text>
-<rect x="496" y="173.33" width="52" height="186.67" rx="3" fill="#b45309"/>
-<text x="522" y="167.33" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">437.5</text>
-<rect x="560" y="357.53" width="52" height="2.47" rx="1.24" fill="#d49b70" stroke="#b45309" stroke-width="1.2"/>
-<text x="586" y="351.53" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">5.8</text>
-<text x="554" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">Unbihex 0.2.2 (stock)</text>
-<rect x="692" y="176.41" width="52" height="183.59" rx="3" fill="#d97706"/>
-<text x="718" y="170.41" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">430.3</text>
-<rect x="756" y="323.39" width="52" height="36.61" rx="3" fill="#e9b06f" stroke="#d97706" stroke-width="1.2"/>
-<text x="782" y="317.39" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">85.8</text>
-<text x="750" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">Unbihex 0.2.2 + PR #18</text>
-<line x1="496" y1="173.33" x2="484" y2="173.33" stroke="#7f8999" stroke-width="1.1" stroke-dasharray="3 3"/>
-<line x1="484" y1="173.33" x2="484" y2="357.53" stroke="#7f8999" stroke-width="1.1" stroke-dasharray="3 3"/>
-<line x1="484" y1="357.53" x2="551" y2="357.53" stroke="#7f8999" stroke-width="1.1" stroke-dasharray="3 3"/>
-<polygon points="557,357.53 549,353.53 549,361.53" fill="#7f8999"/>
-<text x="620" y="352.53" font-size="10" fill="#747987" font-weight="600">75× drop</text>
+<rect x="136.67" y="206.14" width="52" height="153.86" rx="3" fill="#0e7490"/>
+<text x="162.67" y="200.14" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">360.6</text>
+<rect x="200.67" y="322.2" width="52" height="37.8" rx="3" fill="#73aebf" stroke="#0e7490" stroke-width="1.2"/>
+<text x="226.67" y="316.2" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">88.6</text>
+<text x="194.67" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">Xray 26.10.29</text>
+<rect x="398" y="129.69" width="52" height="230.31" rx="3" fill="#7c3aed"/>
+<text x="424" y="123.69" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">539.8</text>
+<rect x="462" y="315.8" width="52" height="44.2" rx="3" fill="#b38df5" stroke="#7c3aed" stroke-width="1.2"/>
+<text x="488" y="309.8" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">103.6</text>
+<text x="456" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">sing-box 1.14.4</text>
+<rect x="659.33" y="173.33" width="52" height="186.67" rx="3" fill="#b45309"/>
+<text x="685.33" y="167.33" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">437.5</text>
+<rect x="723.33" y="357.53" width="52" height="2.47" rx="1.24" fill="#d49b70" stroke="#b45309" stroke-width="1.2"/>
+<text x="749.33" y="351.53" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">5.8</text>
+<text x="717.33" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">Unbihex 0.2.2</text>
+<line x1="659.33" y1="173.33" x2="647.33" y2="173.33" stroke="#7f8999" stroke-width="1.1" stroke-dasharray="3 3"/>
+<line x1="647.33" y1="173.33" x2="647.33" y2="357.53" stroke="#7f8999" stroke-width="1.1" stroke-dasharray="3 3"/>
+<line x1="647.33" y1="357.53" x2="714.33" y2="357.53" stroke="#7f8999" stroke-width="1.1" stroke-dasharray="3 3"/>
+<polygon points="720.33,357.53 712.33,353.53 712.33,361.53" fill="#7f8999"/>
+<text x="783.33" y="352.53" font-size="10" fill="#747987" font-weight="600">75× drop</text>
 <text x="32" y="424" font-size="10" fill="#747987">At 8 streams and 50 ms, netem itself is the bottleneck, so only ↓1 is compared at 50 ms.</text>
 <text x="32" y="440" font-size="10" fill="#747987">MB/s as reported by the bench · medians over the recorded runs.</text>
 </svg>

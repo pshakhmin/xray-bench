@@ -157,8 +157,8 @@ start_bg dest openssl s_server -accept "127.0.0.1:$DEST_PORT" \
 start_bg sink ./bench/target/release/bench sink --listen "$SINK_IP:$SINK_PORT"
 
 # ---------------------------------------------------------------- unbihex source build or release binaries
-# Set UNBIHEX_REPO to build from a checkout (e.g. the PR #18 branch, which has no
-# release); otherwise install the pinned upstream release binaries.
+# Set UNBIHEX_REPO to build from a checkout (your own branch or a local patch);
+# otherwise install the pinned upstream release binaries.
 if [ -n "${UNBIHEX_REPO:-}" ]; then
   command -v cargo >/dev/null || die "cargo is required to build unbihex"
   say "building unbihex from $UNBIHEX_REPO"

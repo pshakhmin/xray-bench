@@ -10,11 +10,9 @@
       "results/xray_reality-rtt0-control-20261029T184602Z.json",
       "results/singbox_reality-rtt0-matrix-20261029T191216Z.json",
       "results/unbihex_reality-rtt0-before-20261029T184605Z.json",
-      "results/unbihex_reality-rtt0-after-20261029T184607Z.json",
       "results/xray_reality-rtt50-control-20261029T184729Z.json",
       "results/singbox_reality-rtt50-matrix-20261029T191231Z.json",
-      "results/unbihex_reality-rtt50-stock-20261029T191332Z.json",
-      "results/unbihex_reality-rtt50-pr-20261029T191341Z.json"
+      "results/unbihex_reality-rtt50-stock-20261029T191332Z.json"
     ]
   },
   "units": {
@@ -24,7 +22,6 @@
   },
   "notes": {
     "rtt50": "Only down1 is compared at 50 ms: at 8 streams and 50 ms netem itself is the bottleneck.",
-    "pairing": "The last two engines are the same 0.2.2 build: released stock vs the PR #18 branch.",
     "values": "Medians over the recorded runs. MB/s is decimal, as printed by the bench."
   },
   "engines": [
@@ -50,23 +47,13 @@
     },
     {
       "id": "unbihex_stock",
-      "label": "Unbihex 0.2.2 (stock)",
+      "label": "Unbihex 0.2.2",
       "label_lines": [
         "Unbihex",
-        "0.2.2 (stock)"
+        "0.2.2"
       ],
       "source_rtt0": "results/unbihex_reality-rtt0-before-20261029T184605Z.json",
       "source_rtt50": "results/unbihex_reality-rtt50-stock-20261029T191332Z.json"
-    },
-    {
-      "id": "unbihex_pr",
-      "label": "Unbihex 0.2.2 + PR #18",
-      "label_lines": [
-        "Unbihex",
-        "0.2.2 + PR #18"
-      ],
-      "source_rtt0": "results/unbihex_reality-rtt0-after-20261029T184607Z.json",
-      "source_rtt50": "results/unbihex_reality-rtt50-pr-20261029T191341Z.json"
     }
   ],
   "rtt0": {
@@ -93,14 +80,6 @@
       "ttfb_median": 5.57,
       "ttfb_p95": 11.59,
       "conns_per_sec": 275.8
-    },
-    "unbihex_pr": {
-      "down1": 430.3,
-      "down8": 1163.1,
-      "up1": 411.0,
-      "ttfb_median": 1.98,
-      "ttfb_p95": 8.08,
-      "conns_per_sec": 938.3
     }
   },
   "rtt50": {
@@ -115,10 +94,6 @@
     "unbihex_stock": {
       "down1": 5.8,
       "ttfb_median": 156.2
-    },
-    "unbihex_pr": {
-      "down1": 85.8,
-      "ttfb_median": 152.2
     }
   }
 }

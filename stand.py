@@ -782,8 +782,8 @@ def measure(scenario, rtt, quick, runs, label, profile="wan", loss=None, rate=No
 
     phase("down1", f"run --proxy 127.0.0.1:{port} --target {target} --mode down --mib 64 --conns 1 --runs {runs}", cpu=True, runs_value=runs)
     if not quick:
-        phase("down8", f"run --proxy 127.0.0.1:{port} --target {target} --mode down --mib 64 --conns 8 --runs {max(1, runs - 1)}", cpu=True, runs_value=max(1, runs - 1))
-        phase("up1", f"run --proxy 127.0.0.1:{port} --target {target} --mode up --mib 32 --conns 1 --runs {max(1, runs - 1)}", cpu=True, runs_value=max(1, runs - 1))
+        phase("down8", f"run --proxy 127.0.0.1:{port} --target {target} --mode down --mib 64 --conns 8 --runs {runs}", cpu=True, runs_value=runs)
+        phase("up1", f"run --proxy 127.0.0.1:{port} --target {target} --mode up --mib 32 --conns 1 --runs {runs}", cpu=True, runs_value=runs)
     phase("ttfb", f"ttfb --proxy 127.0.0.1:{port} --target {target} --runs 30")
     if not quick:
         phase("conns", f"conns --proxy 127.0.0.1:{port} --target {target} --count 200 --par 4")

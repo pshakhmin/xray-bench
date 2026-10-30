@@ -101,7 +101,7 @@ jobs:
           sudo -E env "PATH=$PATH" "HOME=$HOME" \
             python3 stand.py bench \
               --scenarios xray_reality,singbox_reality,unbihex_release \
-              --rtt 0 --runs 2 --profile wan
+              --rtt 0 --runs 3 --profile wan
 
       - name: Bench, RTT 50 ms
         if: steps.netem.outputs.ok == 'true'
@@ -109,7 +109,7 @@ jobs:
           sudo -E env "PATH=$PATH" "HOME=$HOME" \
             python3 stand.py bench \
               --scenarios xray_reality,singbox_reality,unbihex_release \
-              --rtt 50 --quick --runs 2 --profile wan --no-control
+              --rtt 50 --quick --runs 3 --profile wan --no-control
 
       - name: Keep the raw results
         run: |
