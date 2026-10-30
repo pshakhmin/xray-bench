@@ -36,7 +36,6 @@ README_RU_URL = f"{REPO_URL}/blob/master/README.md"
 WORKFLOW_URL = f"{REPO_URL}/blob/master/.github/workflows/bench.yml"
 ACTIONS_URL = f"{REPO_URL}/actions/workflows/bench.yml"
 CI_RESULTS_URL = f"{REPO_URL}/tree/master/ci-results"
-PR18_URL = "https://github.com/crystalmasta/unbihex/pull/18"
 
 CHART_FILES = (
     "throughput-rtt0.svg",
@@ -45,13 +44,11 @@ CHART_FILES = (
     "topology.svg",
 )
 
-# Same colours as charts/make_charts.py.  The two Unbihex builds share the
-# amber family: dark = stock / released build, bright = PR #18.
+# Same colours as charts/make_charts.py.  Unbihex carries the amber accent.
 COLOR = {
     "xray": "#0e7490",
     "singbox": "#7c3aed",
     "unbihex_stock": "#b45309",
-    "unbihex_pr": "#d97706",
     "unknown": "#6b7280",
 }
 
@@ -412,25 +409,17 @@ def self_suffix(scenario: str, records: dict, engine: str) -> str:
         return ""
     if "release" in name:
         return " (release)"
+    # Older Unbihex A/B result files named the released build "before" or
+    # "stock"; both still collapse to the same label.
     labels = {
         (record.label or "").strip().lower()
         for record in records.values()
         if (record.label or "").strip()
     }
-    # The README's Unbihex A/B used "before" for the released build and
-    # "after" for the PR #18 branch; stock/pr are the explicit names.
-    variants = {
-        "stock": "stock",
-        "before": "stock",
-        "pr": "pr",
-        "pr #18": "pr",
-        "after": "pr",
-    }
-    mapped = {variants[label] for label in labels if label in variants}
-    if mapped == {"stock"}:
+    if labels & {"pr", "pr #18", "after"}:
+        return ""
+    if labels & {"stock", "before"}:
         return " (stock)"
-    if mapped == {"pr"}:
-        return " (PR #18)"
     # A downloaded release binary carries no per-binary git block.  The CI
     # workflow names the scenario unbihex_release; this also covers a CI run
     # that keeps the unbihex_reality name.
@@ -448,7 +437,7 @@ def self_suffix(scenario: str, records: dict, engine: str) -> str:
 
 def engine_color(client: str, suffix: str) -> str:
     if client == "unbihex":
-        return COLOR["unbihex_pr"] if "PR" in suffix else COLOR["unbihex_stock"]
+        return COLOR["unbihex_stock"]
     return COLOR.get(client, COLOR["unknown"])
 
 
@@ -494,11 +483,8 @@ def build_groups(selected):
                 mixed=mixed,
                 display=display,
                 color=color,
-                tint=TINT.get(
-                    "unbihex_pr" if color == COLOR["unbihex_pr"] else
-                    "unbihex_stock" if color == COLOR["unbihex_stock"] else
-                    client,
-                    TINT["unknown"],
+                tint=TINT["unbihex_stock"] if client == "unbihex" else TINT.get(
+                    client, TINT["unknown"]
                 ),
                 meta=meta,
             )
@@ -2398,41 +2384,71 @@ def ref_get(data: dict, section_name: str, engine: str, key: str):
     return float(value) if is_num(value) else None
 
 
-def reference_story(data: dict) -> str:
-    stock0 = ref_get(data, "rtt0", "unbihex_stock", "down1")
-    stock50 = ref_get(data, "rtt50", "unbihex_stock", "down1")
-    pr50 = ref_get(data, "rtt50", "unbihex_pr", "down1")
-    pr_conns = ref_get(data, "rtt0", "unbihex_pr", "conns_per_sec")
-    stock_conns = ref_get(data, "rtt0", "unbihex_stock", "conns_per_sec")
-    pr_ttfb = ref_get(data, "rtt0", "unbihex_pr", "ttfb_median")
-    stock_ttfb = ref_get(data, "rtt0", "unbihex_stock", "ttfb_median")
+def engine_label(data: dict, engine: str, fallback: str) -> str:
+    engines = data.get("engines")
+    if isinstance(engines, list):
+        for entry in engines:
+            if not isinstance(entry, dict) or entry.get("id") != engine:
+                continue
+            label = entry.get("label")
+            if isinstance(label, str) and label.strip():
+                return label.strip()
+    return fallback
 
-    source = data.get("source") if isinstance(data.get("source"), dict) else {}
-    release = source.get("release")
-    release_text = f" {esc(release)}" if isinstance(release, str) and release else ""
+
+def reference_story(data: dict) -> str:
+    label = engine_label(data, "unbihex_stock", "Unbihex")
+    base = ref_get(data, "rtt0", "unbihex_stock", "down1")
+    shaped = ref_get(data, "rtt50", "unbihex_stock", "down1")
+    xray50 = ref_get(data, "rtt50", "xray", "down1")
+    singbox50 = ref_get(data, "rtt50", "singbox", "down1")
+    conns = ref_get(data, "rtt0", "unbihex_stock", "conns_per_sec")
+    ttfb_p95 = ref_get(data, "rtt0", "unbihex_stock", "ttfb_p95")
+    xray_conns = ref_get(data, "rtt0", "xray", "conns_per_sec")
+    singbox_conns = ref_get(data, "rtt0", "singbox", "conns_per_sec")
+    xray_p95 = ref_get(data, "rtt0", "xray", "ttfb_p95")
+    singbox_p95 = ref_get(data, "rtt0", "singbox", "ttfb_p95")
 
     sentences = []
-    sentences.append(
-        f"Both Unbihex entries are the same{release_text} release, one branch "
-        f'apart: the released build and the <a href="{PR18_URL}">PR #18</a> branch.'
-    )
-    if stock0 is not None and stock50 is not None and pr50 is not None:
+    if base is not None and shaped is not None:
+        drop = ""
+        if shaped > 0 and base / shaped >= 1.5:
+            drop = f", a {fmt_num(base / shaped, 0)}× drop"
+        compare = ""
+        if xray50 is not None:
+            compare = f", while Xray holds {fmt_num(xray50, 1)}"
+            if singbox50 is not None:
+                compare += f" and sing-box {fmt_num(singbox50, 1)}"
+            compare += "\u00a0MB/s"
+        elif singbox50 is not None:
+            compare = f", while sing-box holds {fmt_num(singbox50, 1)}\u00a0MB/s"
         sentences.append(
-            "At 50 ms the stock build falls from "
-            f"{fmt_num(stock0, 1)} to {fmt_num(stock50, 1)} MB/s, while PR #18 "
-            f"holds {fmt_num(pr50, 1)} MB/s."
+            f"At 50 ms {label} falls from {fmt_num(base, 1)} to "
+            f"{fmt_num(shaped, 1)}\u00a0MB/s{drop}{compare}."
         )
-    if stock_conns is not None and pr_conns is not None:
-        sentences.append(
-            "The same run puts connection rate at "
-            f"{fmt_num(stock_conns, 0)} conn/s for stock and "
-            f"{fmt_num(pr_conns, 0)} conn/s for PR #18."
-        )
-    if stock_ttfb is not None and pr_ttfb is not None:
-        sentences.append(
-            "Median TTFB moves from "
-            f"{fmt_num(stock_ttfb, 2)} to {fmt_num(pr_ttfb, 2)} ms."
-        )
+
+    if conns is not None and ttfb_p95 is not None:
+        rivals_conns = [
+            value for value in (xray_conns, singbox_conns) if value is not None
+        ]
+        rivals_p95 = [value for value in (xray_p95, singbox_p95) if value is not None]
+        if (
+            rivals_conns
+            and rivals_p95
+            and conns < min(rivals_conns)
+            and ttfb_p95 > max(rivals_p95)
+        ):
+            sentences.append(
+                f"On the RTT ≈ 0 run {label} has the lowest connection rate "
+                f"({fmt_num(conns, 1)}\u00a0conn/s) and the highest TTFB p95 "
+                f"({fmt_num(ttfb_p95, 2)}\u00a0ms)."
+            )
+        else:
+            sentences.append(
+                f"On the RTT ≈ 0 run {label} records {fmt_num(conns, 1)}\u00a0conn/s "
+                f"and {fmt_num(ttfb_p95, 2)}\u00a0ms TTFB p95."
+            )
+
     return " ".join(sentences)
 
 
@@ -2472,18 +2488,18 @@ def reference_meta(data: dict) -> str:
 REFERENCE_FIGURES = (
     (
         "throughput-rtt0.svg",
-        "Median MB/s for ↓1, ↓8 and ↑1 across the four engines.",
+        "Median MB/s for ↓1, ↓8 and ↑1 across the three engines.",
         "Grouped bar chart of median throughput in MB/s at RTT close to zero. "
         "sing-box leads single- and eight-stream download and upload; Unbihex "
-        "with PR #18 sits between Xray and sing-box. All four engines are labelled.",
+        "0.2.2 sits between Xray and sing-box. Three engines are labelled.",
         440,
     ),
     (
         "throughput-rtt50.svg",
-        "↓1 at RTT ≈ 0 and 50 ms; the stock build collapses at 50 ms.",
+        "↓1 at RTT ≈ 0 and 50 ms; Unbihex 0.2.2 collapses at 50 ms.",
         "Grouped bar chart of single-stream download throughput at RTT close to "
-        "zero and at 50 ms. Unbihex stock drops sharply at 50 ms; Xray, sing-box "
-        "and Unbihex with PR #18 stay above 85 MB/s.",
+        "zero and at 50 ms. Unbihex 0.2.2 drops to 5.8 MB/s at 50 ms, while "
+        "Xray holds 88.6 and sing-box 103.6 MB/s.",
         456,
     ),
     (
@@ -2491,8 +2507,8 @@ REFERENCE_FIGURES = (
         "TTFB median with p95 whiskers (left) and connection rate (right).",
         "Two-panel chart at RTT close to zero. Left: time to first byte, median "
         "bar with p95 whisker, lower is better. Right: connections per second, "
-        "higher is better. Unbihex with PR #18 has the lowest TTFB and the "
-        "highest connection rate.",
+        "higher is better. Unbihex 0.2.2 has the highest TTFB p95 and the "
+        "lowest connection rate.",
         428,
     ),
     (
@@ -2507,9 +2523,24 @@ REFERENCE_FIGURES = (
 )
 
 
-def render_reference_section(data, copied_charts):
+def reference_source_files(data: dict) -> list:
     source = data.get("source") if isinstance(data.get("source"), dict) else {}
-    source_files = source.get("files") if isinstance(source.get("files"), list) else []
+    listed = source.get("files") if isinstance(source.get("files"), list) else []
+    engines = data.get("engines") if isinstance(data.get("engines"), list) else []
+    referenced = {
+        entry.get(key)
+        for entry in engines
+        if isinstance(entry, dict)
+        for key in ("source_rtt0", "source_rtt50")
+        if isinstance(entry.get(key), str) and entry.get(key)
+    }
+    if not referenced:
+        return listed
+    return [path for path in listed if isinstance(path, str) and path in referenced]
+
+
+def render_reference_section(data, copied_charts):
+    source_files = reference_source_files(data)
 
     parts = []
     parts.append(
@@ -2527,7 +2558,9 @@ def render_reference_section(data, copied_charts):
     parts.append(reference_meta(data))
 
     if data:
-        parts.append(f'<p class="ref-story">{reference_story(data)}</p>')
+        story = reference_story(data)
+        if story:
+            parts.append(f'<p class="ref-story">{story}</p>')
     else:
         parts.append(
             '<p class="missing-note">Reference metadata '
