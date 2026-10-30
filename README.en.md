@@ -19,13 +19,19 @@ fresh numbers, charts and provenance are on **<https://pshakhmin.github.io/xray-
 
 | Engine (release binaries) | ↓1 MB/s | ↓8 MB/s | ↑1 MB/s | TTFB | conn/s | ↓1, RTT 50 ms | TTFB, RTT 50 |
 |---|---|---|---|---|---|---|---|
-| Xray 26.10.29 | 152 [140–164] | 191 | 162 | 2.5 ms | 559 | 40.6 | 154 ms |
-| sing-box 1.14.4 | 188 [181–194] | 207 | 188 | 2.4 ms | 395 | 44.3 | 153 ms |
-| Unbihex 0.2.3 (`test_server` 0.0.1) | 108 [108–108] | 133 | 119 | 1.6 ms | 150 | 19.3 | 153 ms |
+| Xray 26.10.29 | 164 [146–199] | 204 | 152 | 4.3 ms | 431 | 37.8 | 157 ms |
+| sing-box 1.14.4 | 213 [182–220] | 307 | 170 | 4.3 ms | 293 | 45.2 | 157 ms |
+| Unbihex 0.2.3 (`test_server` 0.0.1) | 89 [86–92] | 202 | 89 | 2.3 ms | 173 | 2.0 | 154 ms |
 
-Run of 2026-10-30, commit `8dc2f29`; raw JSON lives in [`ci-results/`](ci-results) and the page is
+Run of 2026-10-30, commit `0720e82`; raw JSON lives in [`ci-results/`](ci-results) and the page is
 rebuilt by `python3 site/build.py`. Medians of three runs, min–max in brackets. The runner has
 4 vCPU: compare cells only within one run, never against other hardware.
+
+Unbihex falls to 2 MB/s at 50 ms, and that is not a one-off: the cell was re-measured several times
+and stayed in the same range. The released 0.2.2 behaves the same way in the reference run below
+(5.8 MB/s at 50 ms), so it looks like real latency sensitivity of the engine rather than a one-off stand artefact. TTFB in that column
+is simply the configured RTT (~154–157 ms) for every engine — a check that the delay is applied, not
+an engine difference.
 
 ### Reference run: 16 cores, loopback (historical)
 
@@ -89,6 +95,10 @@ behaviour (MTU 65536, offloads on, delay only); the reference run below was take
 
 `./stand.py report --stats` prints min–max, the number of runs and the spread next to each median:
 `!` marks a rejected run (errors, in-phase spread > 60%), `§` a metric whose spread exceeds 20%.
+
+`bench --retry-invalid N` re-measures a cell while it stays invalid and keeps the **first valid**
+attempt (not the best one). CI uses 2 retries at RTT≈0 and 3 at 50 ms — otherwise the median of three
+identically collapsed runs reads like an engine result.
 
 Repeatability of the same binary between sessions: 1–6% for `down1`, up to 33% for `down8` on the
 16-core host; on the CI runner the spread is visible in `report --stats` and on the page. **Differences below ~15% are noise**; build claims on `stand.py ab` (alternating A/B) and on
