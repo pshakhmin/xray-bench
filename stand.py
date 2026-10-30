@@ -1824,7 +1824,8 @@ DEFAULT_SCENARIOS = ["xray_reality", "xray_xhttp", "singbox_reality", "unbihex_r
                      "xraycl_ubisrv", "ubicl_xraysrv"]
 
 
-def bench_matrix(scenarios, rtts, quick, runs, control, profile="wan", loss=None, rate=None):
+def bench_matrix(scenarios, rtts, quick, runs, control, profile="wan", loss=None, rate=None,
+                 retries=0):
     produced = []
     if control:
         say("== negative control ==")
@@ -1834,8 +1835,19 @@ def bench_matrix(scenarios, rtts, quick, runs, control, profile="wan", loss=None
         for scenario in scenarios:
             say(f"== {scenario}, RTT {rtt} ms ==")
             up(scenario)
-            produced.append(measure(scenario, rtt, quick, runs, label="",
-                                    profile=profile, loss=loss, rate=rate))
+            result = measure(scenario, rtt, quick, runs, label="",
+                             profile=profile, loss=loss, rate=rate)
+            # A collapsed cell is a measurement failure, not a result: retry it
+            # rather than publish it or, worse, quietly keep the best attempt.
+            attempt = 0
+            while not result.get("valid", True) and attempt < retries:
+                attempt += 1
+                say("  invalid: " + "; ".join(result.get("invalid_reasons") or ["?"]) +
+                    f" — retry {attempt}/{retries}")
+                up(scenario)
+                result = measure(scenario, rtt, quick, runs, label="",
+                                 profile=profile, loss=loss, rate=rate)
+            produced.append(result)
             set_rtt(0)
     return produced
 
@@ -1918,6 +1930,9 @@ def main():
     p.add_argument("--loss", type=float, default=None)
     p.add_argument("--rate", type=float, default=None,
                    help="netem rate cap in Mbit/s, 0 = unlimited; a rate cap flattens throughput differences by design")
+    p.add_argument("--retry-invalid", type=int, default=0, metavar="N",
+                   help="re-measure a cell up to N times while it stays invalid; "
+                        "the first valid attempt is kept, otherwise the last one")
     args = ap.parse_args()
 
     if args.cmd == "up":
@@ -1971,7 +1986,8 @@ def main():
         versions(False)
         try:
             produced = bench_matrix(scenarios, rtts, args.quick, args.runs, args.control,
-                                    profile=args.profile, loss=args.loss, rate=args.rate)
+                                    profile=args.profile, loss=args.loss, rate=args.rate,
+                                    retries=args.retry_invalid)
             report(markdown=True, files=produced)
         finally:
             set_rtt(0)
