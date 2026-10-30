@@ -27,13 +27,45 @@ Run of 2026-10-30, commit `0720e82`; raw JSON lives in [`ci-results/`](ci-result
 rebuilt by `python3 site/build.py`. Medians of three runs, min–max in brackets. The runner has
 4 vCPU: compare cells only within one run, never against other hardware.
 
-Unbihex falls to 2 MB/s at 50 ms, and that is not a one-off: the cell was re-measured several times
-and stayed in the same range. The released 0.2.2 behaves the same way in the reference run below
-(5.8 MB/s at 50 ms), so it looks like real latency sensitivity of the engine rather than a one-off stand artefact. TTFB in that column
+Unbihex falls to 2 MB/s at 50 ms in this run. The cause is known: the engine asked the kernel for a
+4 MiB `SO_RCVBUF`, and an explicit size turns receive-buffer autotuning off. The `rcv_space` estimate
+then collapses from megabytes to tens of kilobytes, and a 51 KB window at 50 ms is exactly 1 MB/s.
+The table is left as it is — that is the raw output of the run, before the fix. The fix (default "leave
+the sockets alone") and the bulk TLS read are in PR #20 and the one after it. TTFB in that column
 is simply the configured RTT (~154–157 ms) for every engine — a check that the delay is applied, not
 an engine difference.
 
-### Reference run: 16 cores, loopback (historical)
+### Reference run: 16 cores, wan
+
+The `wan` profile: MTU 1500, offloads off, no loss, 16 cores, released binaries (Unbihex 0.2.3 —
+`test_server` and `unbihex-cli` from `main`). The run clock starts before the connections are
+established: otherwise an engine that brings the tunnel up first and only then answers SOCKS hides
+its setup inside the handshake, while an engine that answers at once pays for it in the measurement.
+How much went into the setup is visible as `connect_seconds` in every result.
+
+![Throughput at RTT≈0: Xray 181/544/194, sing-box 240/676/232, Unbihex 254/671/247 MB/s](charts/throughput-rtt0.svg)
+
+![Single stream at RTT≈0 and 50 ms: Unbihex 253.6 → 54.9 MB/s, Xray 180.9 → 67.8, sing-box 239.5 → 71.5](charts/throughput-rtt50.svg)
+
+![TTFB and connection rate at RTT≈0: Unbihex has the best median TTFB (2.82 ms) and the highest connection rate (890 conn/s); Xray sits at 3.46 ms and 540](charts/connections.svg)
+
+| Engine (self-pair) | ↓1, RTT≈0 | ↓8, RTT≈0 | ↑1, RTT≈0 | TTFB | conn/s | ↓1, RTT 50 ms | TTFB, RTT 50 |
+|---|---|---|---|---|---|---|---|
+| Xray 26.10.29 | 181 MB/s | 544 MB/s | 194 MB/s | 3.46 ms | 540 | 67.8 MB/s | 155 ms |
+| sing-box 1.14.4 | 240 MB/s | 676 MB/s | 232 MB/s | 3.46 ms | 635 | 71.5 MB/s | 156 ms |
+| Unbihex 0.2.3 | 254 MB/s | 671 MB/s | 247 MB/s | 2.82 ms | 890 | 54.9 MB/s | 154 ms |
+
+These are protocol-layer numbers on a shaped loopback path: compare cells with each other, not with
+a real link (see [Limitations](#limitations-important)). At 50 ms Unbihex 0.2.3 trails both — the
+release still asks for a 4 MiB `SO_RCVBUF`. On the branch with the fix (default "leave the sockets
+alone" plus the bulk TLS read) the same runs give 305/937/298 MB/s at RTT≈0 and 71.2 MB/s at
+RTT 50 ms; the table will be refreshed once that is merged.
+
+The charts and the table come from the same runs. `results/` is not committed, so the medians are
+duplicated in [`charts/data.json`](charts/data.json) with links to the source files; regenerate the
+charts with `python3 charts/make_charts.py` (`--lang ru` for the Russian versions in `charts/ru/`).
+
+## Reference run: 16 cores, loopback (historical)
 
 The first run of the stand, before the `wan` profile existed: MTU 65536, offloads on, no loss,
 16 cores, Unbihex 0.2.2. Do not compare it with the CI numbers above.

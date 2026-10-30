@@ -20,35 +20,35 @@
 <text x="56" y="143.97" font-size="10" fill="#747987" text-anchor="end">1200</text>
 <line x1="64" y1="104" x2="848" y2="104" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
 <text x="56" y="107.4" font-size="10" fill="#747987" text-anchor="end">1400</text>
-<rect x="137.67" y="294.06" width="34" height="65.94" rx="3" fill="#0e7490"/>
-<text x="154.67" y="288.06" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">360.6</text>
+<rect x="137.67" y="326.92" width="34" height="33.08" rx="3" fill="#0e7490"/>
+<text x="154.67" y="320.92" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">180.9</text>
 <text x="154.67" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓1</text>
-<rect x="177.67" y="212.56" width="34" height="147.44" rx="3" fill="#0e7490"/>
-<text x="194.67" y="206.56" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">806.3</text>
+<rect x="177.67" y="260.51" width="34" height="99.49" rx="3" fill="#0e7490"/>
+<text x="194.67" y="254.51" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">544.1</text>
 <text x="194.67" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓8</text>
-<rect x="217.67" y="297.68" width="34" height="62.32" rx="3" fill="#0e7490"/>
-<text x="234.67" y="291.68" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">340.8</text>
+<rect x="217.67" y="324.51" width="34" height="35.49" rx="3" fill="#0e7490"/>
+<text x="234.67" y="318.51" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">194.1</text>
 <text x="234.67" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↑1</text>
 <text x="194.67" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">Xray 26.10.29</text>
-<rect x="399" y="261.29" width="34" height="98.71" rx="3" fill="#7c3aed"/>
-<text x="416" y="255.29" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">539.8</text>
+<rect x="399" y="316.21" width="34" height="43.79" rx="3" fill="#7c3aed"/>
+<text x="416" y="310.21" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">239.5</text>
 <text x="416" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓1</text>
-<rect x="439" y="121.12" width="34" height="238.88" rx="3" fill="#7c3aed"/>
-<text x="456" y="115.12" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">1306.4</text>
+<rect x="439" y="236.41" width="34" height="123.59" rx="3" fill="#7c3aed"/>
+<text x="456" y="230.41" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">675.9</text>
 <text x="456" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓8</text>
-<rect x="479" y="263.14" width="34" height="96.86" rx="3" fill="#7c3aed"/>
-<text x="496" y="257.14" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">529.7</text>
+<rect x="479" y="317.56" width="34" height="42.44" rx="3" fill="#7c3aed"/>
+<text x="496" y="311.56" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">232.1</text>
 <text x="496" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↑1</text>
 <text x="456" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">sing-box 1.14.4</text>
-<rect x="660.33" y="280" width="34" height="80" rx="3" fill="#b45309"/>
-<text x="677.33" y="274" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">437.5</text>
+<rect x="660.33" y="313.63" width="34" height="46.37" rx="3" fill="#b45309"/>
+<text x="677.33" y="307.63" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">253.6</text>
 <text x="677.33" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓1</text>
-<rect x="700.33" y="175.13" width="34" height="184.87" rx="3" fill="#b45309"/>
-<text x="717.33" y="169.13" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">1011.0</text>
+<rect x="700.33" y="237.32" width="34" height="122.68" rx="3" fill="#b45309"/>
+<text x="717.33" y="231.32" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">670.9</text>
 <text x="717.33" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓8</text>
-<rect x="740.33" y="289.42" width="34" height="70.58" rx="3" fill="#b45309"/>
-<text x="757.33" y="283.42" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">386.0</text>
+<rect x="740.33" y="314.78" width="34" height="45.22" rx="3" fill="#b45309"/>
+<text x="757.33" y="308.78" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">247.3</text>
 <text x="757.33" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↑1</text>
-<text x="717.33" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">Unbihex 0.2.2</text>
+<text x="717.33" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">Unbihex 0.2.3</text>
 <text x="32" y="426" font-size="10" fill="#747987">Medians · loopback, 16 cores · netem on the tunnel port only</text>
 </svg>

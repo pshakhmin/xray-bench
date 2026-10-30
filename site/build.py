@@ -641,12 +641,14 @@ _msg("ref.callout.title", "16-core reference, not a CI runner.",
      "Референс на 16 ядрах, а не CI-раннер.")
 _msg("ref.callout.body",
      "These are the four images committed in <code>charts/</code> and linked "
-     "from both READMEs. They were taken with the old loopback profile: MTU "
-     "65536, no loss, no rate cap. The values are duplicated in "
+     "from both READMEs. They were taken with the wan profile: MTU 1500, "
+     "offloads off, no loss, no rate cap, and the run clock starts before the "
+     "connection is established. The values are duplicated in "
      "<code>charts/data.json</code> because <code>results/</code> is not committed.",
      "Это четыре изображения из <code>charts/</code>, на них ссылаются оба "
-     "README. Сняты на старом loopback-профиле: MTU 65536, без потерь и без "
-     "лимита полосы. Значения продублированы в <code>charts/data.json</code>, "
+     "README. Сняты на профиле <code>wan</code>: MTU 1500, offloads выключены, "
+     "без потерь и без лимита полосы; таймер прогона стартует до установки "
+     "соединения. Значения продублированы в <code>charts/data.json</code>, "
      "потому что <code>results/</code> не коммитится.")
 _msg("ref.meta.release", "Release", "Релиз")
 _msg("ref.meta.base", "Base", "База")
@@ -655,8 +657,8 @@ _msg("ref.meta.machine", "Machine", "Машина")
 _msg("ref.meta.path", "Path", "Путь")
 _msg("ref.meta.rtt", "RTT", "RTT")
 _msg("ref.meta.profile", "Profile", "Профиль")
-_msg("ref.meta.profile_value", "loopback · MTU 65536 · no loss",
-     "loopback · MTU 65536 · без потерь")
+_msg("ref.meta.profile_value", "wan · MTU 1500 · offloads off · no loss",
+     "wan · MTU 1500 · offloads off · без потерь")
 _msg("ref.value.cores", "{n} cores", "{n} ядер")
 _msg("ref.value.rtt_method", "netem on the tunnel port only",
      "netem только на порт туннеля")
@@ -698,23 +700,19 @@ _msg("ref.fig.rtt0.caption",
      "Median MB/s for ↓1, ↓8 and ↑1 across the three engines.",
      "Медиана MB/s для ↓1, ↓8 и ↑1 по трём движкам.")
 _msg("ref.fig.rtt0.alt",
-     "Grouped bar chart of median throughput in MB/s at RTT close to zero. "
-     "sing-box leads single- and eight-stream download and upload; Unbihex "
-     "0.2.2 sits between Xray and sing-box. Three engines are labelled.",
+     "Grouped bar chart of median throughput in MB/s at RTT close to zero for "
+     "one and eight download streams and one upload stream, three engines.",
      "Сгруппированная столбчатая диаграмма медианной пропускной способности в "
-     "MB/s при RTT около нуля. sing-box лидирует в скачивании и отдаче на "
-     "одном и восьми потоках; Unbihex 0.2.2 находится между Xray и sing-box. "
-     "Подписаны три движка.")
+     "MB/s при RTT около нуля: один и восемь потоков на скачивание и один на "
+     "отдачу, три движка.")
 _msg("ref.fig.rtt50.caption",
-     "↓1 at RTT ≈ 0 and 50 ms; Unbihex 0.2.2 collapses at 50 ms.",
-     "↓1 при RTT ≈ 0 и 50 ms; Unbihex 0.2.2 обваливается на 50 ms.")
+     "↓1 at RTT ≈ 0 and at 50 ms for all three engines.",
+     "↓1 при RTT ≈ 0 и при 50 ms по трём движкам.")
 _msg("ref.fig.rtt50.alt",
      "Grouped bar chart of single-stream download throughput at RTT close to "
-     "zero and at 50 ms. Unbihex 0.2.2 drops to 5.8 MB/s at 50 ms, while Xray "
-     "holds 88.6 and sing-box 103.6 MB/s.",
+     "zero and at 50 ms for the three engines.",
      "Сгруппированная столбчатая диаграмма скачивания в один поток при RTT "
-     "около нуля и 50 ms. На 50 ms Unbihex 0.2.2 падает до 5.8 MB/s, Xray "
-     "держит 88.6, sing-box — 103.6 MB/s.")
+     "около нуля и при 50 ms по трём движкам.")
 _msg("ref.fig.connections.caption",
      "TTFB median with p95 whiskers (left) and connection rate (right).",
      "Медиана TTFB с усами p95 (слева) и скорость соединений (справа).")
@@ -757,13 +755,11 @@ _msg("caveat.1.title", "A shaped path, still not a NIC",
      "Шейпер, но всё ещё не NIC")
 _msg("caveat.1.body",
      "Current runs can emulate a WAN-like link: MTU 1500, offloads off and "
-     "0.1% loss. The reference charts used the old loopback profile (MTU 65536, "
-     "no loss). The packets still traverse loopback, not a real NIC, driver or "
+     "0.1% loss. The packets still traverse loopback, not a real NIC, driver or "
      "ISP path.",
      "Текущие прогоны умеют имитировать WAN-канал: MTU 1500, offloads выключены, "
-     "потери 0.1%. Референсные графики снимались на старом loopback-профиле "
-     "(MTU 65536, без потерь). Пакеты по-прежнему идут через loopback, а не "
-     "через реальный NIC, драйвер или путь провайдера.")
+     "потери 0.1%. Пакеты по-прежнему идут через loopback, а не через реальный "
+     "NIC, драйвер или путь провайдера.")
 _msg("caveat.2.title", "No bandwidth cap by default",
      "По умолчанию без ограничения полосы")
 _msg("caveat.2.body",
@@ -3201,7 +3197,7 @@ def reference_story(data: dict) -> str:
     sentences = []
     if base is not None and shaped is not None:
         drop = ""
-        if shaped > 0 and base / shaped >= 1.5:
+        if shaped > 0 and base / shaped >= 10:
             drop = t("ref.story.drop", ratio=fmt_num(base / shaped, 0))
         compare = ""
         if xray50 is not None and singbox50 is not None:
