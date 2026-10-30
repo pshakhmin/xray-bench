@@ -1,0 +1,436 @@
+{
+  "ts": "2026-10-30T08:27:21+00:00",
+  "scenario": "xray_reality",
+  "rtt_ms": 0,
+  "kernel": "6.8.0-147-generic",
+  "cpu": "Intel(R) Xeon(R) CPU E5-2698B v3 @ 2.00GHz",
+  "nproc": 6,
+  "sysctl": {
+    "net.ipv4.tcp_rmem": "4096\t131072\t6291456",
+    "net.core.rmem_max": "212992",
+    "net.core.wmem_max": "212992"
+  },
+  "netem": {
+    "one_way_ms": 0,
+    "limit": 20000,
+    "ports": [
+      18443,
+      18444,
+      18453,
+      18463,
+      18473
+    ]
+  },
+  "scenario_procs": {
+    "server": 26936,
+    "client": 26937
+  },
+  "inputs": {
+    "xray": {
+      "path": "/opt/actions-runner/_work/xray-bench/xray-bench/cache/xray/xray",
+      "sha256": "e783b9d2b46ed1ab3617c59b04dfbce38c999322d018c6e060f18d88bf6158aa",
+      "version": "Xray 26.10.29 (Xray, Penetrates Everything.) 0afec66 (go1.27.3 linux/amd64)",
+      "git": {
+        "commit": "bed3227af7f385eeb03ad7407217bdf32c384021",
+        "branch": "master",
+        "dirty": false
+      }
+    },
+    "singbox": {
+      "path": "/opt/actions-runner/_work/xray-bench/xray-bench/cache/sing-box/sing-box",
+      "sha256": "1264361b5f8868c8768f7555d3e77e20118bf503c41ac08bb290a0d99056aa3a",
+      "version": "sing-box version 1.14.4",
+      "git": {
+        "commit": "bed3227af7f385eeb03ad7407217bdf32c384021",
+        "branch": "master",
+        "dirty": false
+      }
+    },
+    "unbihex-server": {
+      "path": "/opt/actions-runner/_work/xray-bench/xray-bench/cache/unbihex-server/test_server",
+      "sha256": "e0a67b0ded8f13d9452b866e37edef68b23b3847d15d791a5045b127a5a87eb6",
+      "version": "test_server 0.0.1 (engine 0.1.3) (linux/x86_64)",
+      "git": {
+        "commit": "bed3227af7f385eeb03ad7407217bdf32c384021",
+        "branch": "master",
+        "dirty": false
+      }
+    },
+    "unbihex-cli": {
+      "path": "/opt/actions-runner/_work/xray-bench/xray-bench/cache/unbihex-cli/unbihex-cli",
+      "sha256": "0c4481075ec7c9ee90c3d562abd871197275c1a4143546e09d289574fc8dd2bd",
+      "version": "unbihex-cli 0.2.3 (engine 0.1.3)",
+      "git": {
+        "commit": "bed3227af7f385eeb03ad7407217bdf32c384021",
+        "branch": "master",
+        "dirty": false
+      }
+    }
+  },
+  "label": "",
+  "link": {
+    "profile": "wan",
+    "one_way_ms": 0,
+    "jitter_ms": 0,
+    "loss_pct": 0.1,
+    "rate_mbit": 0.0,
+    "mtu": 1500,
+    "gso": "off"
+  },
+  "metrics": {
+    "down1_cpu": {
+      "server_ms": 810,
+      "client_ms": 1210,
+      "mib": 192,
+      "server_ms_per_mib": 4.22,
+      "client_ms_per_mib": 6.3
+    },
+    "down1": {
+      "event": "summary",
+      "mode": "down",
+      "median_mbps": 175.993,
+      "min_mbps": 155.098,
+      "max_mbps": 177.998,
+      "runs": 3,
+      "sys": {
+        "cpu": {
+          "busy_ms": 2930,
+          "user_ms": 660,
+          "system_ms": 1070,
+          "softirq_ms": 1190,
+          "irq_ms": 0,
+          "nproc": 6
+        },
+        "ram": {
+          "mem_total_kb": 4008436,
+          "mem_available_before_kb": 3317584,
+          "mem_available_after_kb": 3316084,
+          "used_kb": 692352,
+          "available_min_kb": 3309696
+        },
+        "engine_rss_kb": {
+          "server": {
+            "hwm_kb": 36192,
+            "rss_kb": 36192,
+            "rss_max_kb": 36404
+          },
+          "client": {
+            "hwm_kb": 35136,
+            "rss_kb": 35136,
+            "rss_max_kb": 35136
+          }
+        }
+      },
+      "evidence": {
+        "qdisc": {
+          "dropped": 62,
+          "overlimits": 0,
+          "requeues": 0,
+          "packets": 699468,
+          "bytes": 901475735,
+          "drop_rate_pct": 0.01,
+          "backlog_max": 0,
+          "qdisc_total": {
+            "dropped": 98,
+            "overlimits": 0,
+            "requeues": 0,
+            "packets": 942690,
+            "bytes": 1205691733,
+            "backlog": 0,
+            "drop_rate_pct": 0.01
+          },
+          "qdisc_raw": "qdisc prio 1: root refcnt 2 bands 4 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n Sent 905593306 bytes 712803 pkt (dropped 49, overlimits 0 requeues 0) \n backlog 0b 0p requeues 0\nqdisc netem 30: parent 1:3 limit 20000 loss 0.1%\n Sent 297915823 bytes 199847 pkt (dropped 27, overlimits 0 requeues 0) \n backlog 0b 0p requeues 0\nqdisc netem 20: parent 1:2 limit 20000 loss 0.1%\n Sent 2182604 bytes 30040 pkt (dropped 22, overlimits 0 requeues 0) \n backlog 0b 0p requeues 0"
+        },
+        "sock": {
+          "sockets": 1,
+          "retrans": 0,
+          "rtt_ms_last": 0.166,
+          "cwnd_last": 54,
+          "sock_raw": "ESTAB 3249454 0                    127.0.0.1:49444              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.039/0.045 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:1832 bytes_acked:1833 bytes_received:45434704 segs_out:6073 segs_in:32457 data_segs_out:4 data_segs_in:32453 send 2970256410bps lastsnd:214 pacing_rate 5883936504bps delivery_rate 702060600bps delivered:5 app_limited rcv_rtt:0.442 rcv_space:341200 rcv_ssthresh:2180371 minrtt:0.019 rcv_ooopack:2680 snd_wnd:71040                                                                                                                                             \nESTAB 0       547694               127.0.0.1:18443              127.0.0.1:49444\n\t cubic wscale:7,7 rto:201 rtt:0.166/0.039 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:54 ssthresh:53 bytes_sent:46198334 bytes_retrans:697838 bytes_acked:45500496 bytes_received:1832 segs_out:32543 segs_in:6072 data_segs_out:32540 data_segs_in:4 send 3768289157bps lastsnd:1 lastrcv:215 lastack:1 pacing_rate 4501608392bps delivery_rate 2612078424bps delivered:32403 busy:199ms rwnd_limited:38ms(19.1%) retrans:0/494 dsack_dups:403 reordering:73 reord_seen:1162 rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 notsent:547694 minrtt:0.01 snd_wnd:128        "
+        }
+      }
+    },
+    "down8_cpu": {
+      "server_ms": 1170,
+      "client_ms": 1670,
+      "mib": 192,
+      "server_ms_per_mib": 6.09,
+      "client_ms_per_mib": 8.7
+    },
+    "down8": {
+      "event": "summary",
+      "mode": "down",
+      "median_mbps": 221.673,
+      "min_mbps": 218.852,
+      "max_mbps": 263.383,
+      "runs": 3,
+      "sys": {
+        "cpu": {
+          "busy_ms": 3930,
+          "user_ms": 800,
+          "system_ms": 1040,
+          "softirq_ms": 2090,
+          "irq_ms": 0,
+          "nproc": 6
+        },
+        "ram": {
+          "mem_total_kb": 4008436,
+          "mem_available_before_kb": 3316084,
+          "mem_available_after_kb": 3317188,
+          "used_kb": 691248,
+          "available_min_kb": 3312608
+        },
+        "engine_rss_kb": {
+          "server": {
+            "hwm_kb": 38232,
+            "rss_kb": 38232,
+            "rss_max_kb": 38232
+          },
+          "client": {
+            "hwm_kb": 37464,
+            "rss_kb": 37464,
+            "rss_max_kb": 37464
+          }
+        }
+      },
+      "evidence": {
+        "qdisc": {
+          "dropped": 196,
+          "overlimits": 0,
+          "requeues": 0,
+          "packets": 865913,
+          "bytes": 945904665,
+          "drop_rate_pct": 0.02,
+          "backlog_max": 0,
+          "qdisc_total": {
+            "dropped": 294,
+            "overlimits": 0,
+            "requeues": 0,
+            "packets": 1808603,
+            "bytes": 2151596398,
+            "backlog": 0,
+            "drop_rate_pct": 0.02
+          },
+          "qdisc_raw": "qdisc prio 1: root refcnt 2 bands 4 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n Sent 1618564938 bytes 1364941 pkt (dropped 147, overlimits 0 requeues 0) \n backlog 0b 0p requeues 0\nqdisc netem 30: parent 1:3 limit 20000 loss 0.1%\n Sent 526324422 bytes 352397 pkt (dropped 64, overlimits 0 requeues 0) \n backlog 0b 0p requeues 0\nqdisc netem 20: parent 1:2 limit 20000 loss 0.1%\n Sent 6707038 bytes 91265 pkt (dropped 83, overlimits 0 requeues 0) \n backlog 0b 0p requeues 0"
+        },
+        "sock": {
+          "sockets": 7,
+          "retrans": 0,
+          "rtt_ms_last": 0.252,
+          "cwnd_last": 10,
+          "sock_raw": "ESTAB 0      229992              127.0.0.1:18443              127.0.0.1:49662\n\t cubic wscale:7,7 rto:201 rtt:0.145/0.062 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:18 ssthresh:10 bytes_sent:6949868 bytes_retrans:406150 bytes_acked:6517654 bytes_received:1832 segs_out:4817 segs_in:2695 data_segs_out:4813 data_segs_in:4 send 1438013793bps lastrcv:182 pacing_rate 1716736872bps delivery_rate 2825365848bps delivered:4648 app_limited busy:175ms unacked:18 retrans:0/282 dsack_dups:258 reordering:40 reord_seen:311 rcv_rtt:4 rcv_space:14480 rcv_ssthresh:70952 notsent:203928 minrtt:0.005 snd_wnd:3723520                      \nESTAB 0      0                   127.0.0.1:49676              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.198/0.296 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:1896 bytes_retrans:64 bytes_acked:1833 bytes_received:5029372 segs_out:1687 segs_in:3645 data_segs_out:5 data_segs_in:3638 send 585050505bps lastsnd:186 pacing_rate 490822696bps delivery_rate 702060600bps delivered:6 app_limited retrans:0/1 dsack_dups:1 rcv_rtt:1.25 rcv_space:132728 rcv_ssthresh:1124197 minrtt:0.033 rcv_ooopack:493 snd_wnd:73856                                                                                                 \nESTAB 0      0                   127.0.0.1:18443              127.0.0.1:49640\n\t cubic wscale:7,7 rto:201 rtt:0.185/0.124 ato:47 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 ssthresh:7 bytes_sent:8633382 bytes_retrans:280862 bytes_acked:8352520 bytes_received:1864 segs_out:6043 segs_in:1732 data_segs_out:6039 data_segs_in:4 send 626162162bps lastrcv:170 pacing_rate 751394592bps delivery_rate 181567392bps delivered:5961 busy:163ms rwnd_limited:29ms(17.8%) retrans:0/197 dsack_dups:191 reordering:58 reord_seen:227 rcv_rtt:2 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.007 snd_wnd:523264                                        \nESTAB 0      105224              127.0.0.1:18443              127.0.0.1:49614\n\t cubic wscale:7,7 rto:201 rtt:0.265/0.148 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:11 ssthresh:8 bytes_sent:6718868 bytes_retrans:356700 bytes_acked:6346240 bytes_received:1832 segs_out:4738 segs_in:1989 data_segs_out:4734 data_segs_in:4 send 480845283bps lastrcv:193 pacing_rate 575656656bps delivery_rate 563823008bps delivered:4622 busy:179ms rwnd_limited:3ms(1.7%) unacked:11 retrans:0/261 dsack_dups:240 reordering:62 reord_seen:215 rcv_rtt:3 rcv_space:14480 rcv_ssthresh:70952 notsent:89296 minrtt:0.006 snd_wnd:2244736                \nESTAB 0      0                   127.0.0.1:49640              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.159/0.288 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:1864 bytes_acked:1865 bytes_received:8352520 segs_out:1732 segs_in:6039 data_segs_out:4 data_segs_in:6034 send 728553459bps lastsnd:170 pacing_rate 1449132128bps delivery_rate 681411760bps delivered:5 app_limited busy:1ms rcv_rtt:1.08 rcv_space:126120 rcv_ssthresh:523245 minrtt:0.018 rcv_ooopack:699 snd_wnd:71040                                                                                                                                  \nESTAB 0      348968              127.0.0.1:18443              127.0.0.1:49672\n\t cubic wscale:7,7 rto:201 rtt:0.081/0.044 ato:43 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:2 ssthresh:2 bytes_sent:1860057 bytes_retrans:145334 bytes_acked:1711827 bytes_received:1864 segs_out:1294 segs_in:997 data_segs_out:1290 data_segs_in:4 send 286024691bps lastsnd:1 lastrcv:175 lastack:1 pacing_rate 342700768bps delivery_rate 282536584bps delivered:1237 busy:176ms rwnd_limited:1ms(0.6%) unacked:2 retrans:0/103 dsack_dups:101 reordering:13 reord_seen:47 rcv_rtt:4 rcv_space:14480 rcv_ssthresh:70952 notsent:346072 minrtt:0.005 snd_wnd:936832\nESTAB 0      0                   127.0.0.1:49612              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.103/0.132 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:1928 bytes_acked:1929 bytes_received:5612217 segs_out:1939 segs_in:4152 data_segs_out:4 data_segs_in:4148 send 1124660194bps lastsnd:202 lastrcv:22 lastack:22 pacing_rate 2235753920bps delivery_rate 626162160bps delivered:5 app_limited rcv_rtt:1 rcv_space:118180 rcv_ssthresh:1069827 minrtt:0.037 rcv_ooopack:557 snd_wnd:71040                                                                                                                      \nESTAB 0      0                   127.0.0.1:49656              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.109/0.17 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:1864 bytes_acked:1865 bytes_received:4257179 segs_out:1332 segs_in:3139 data_segs_out:4 data_segs_in:3135 send 1062752294bps lastsnd:175 lastrcv:1 lastack:1 pacing_rate 2118217136bps delivery_rate 747354832bps delivered:5 app_limited busy:1ms rcv_rtt:1.453 rcv_space:125088 rcv_ssthresh:574219 minrtt:0.028 rcv_ooopack:407 snd_wnd:71040                                                                                                             \nESTAB 0      34862               127.0.0.1:18443              127.0.0.1:49656\n\t cubic wscale:7,7 rto:201 rtt:0.463/0.338 ato:44 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:27 ssthresh:18 bytes_sent:4484845 bytes_retrans:176722 bytes_acked:4281085 bytes_received:1864 segs_out:3177 segs_in:1332 data_segs_out:3174 data_segs_in:4 send 675524838bps lastrcv:175 pacing_rate 809755336bps delivery_rate 299282672bps delivered:3120 busy:157ms unacked:19 retrans:0/126 dsack_dups:120 reordering:25 reord_seen:149 rcv_rtt:5 rcv_space:14480 rcv_ssthresh:70952 notsent:7824 minrtt:0.009 snd_wnd:574336                                        \nESTAB 0      0                   127.0.0.1:49662              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.157/0.244 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:1832 bytes_acked:1833 bytes_received:6556750 segs_out:2699 segs_in:4827 data_segs_out:4 data_segs_in:4822 send 737834395bps lastsnd:183 pacing_rate 1470984120bps delivery_rate 747354832bps delivered:5 app_limited busy:1ms rcv_rtt:1 rcv_space:183948 rcv_ssthresh:3760128 minrtt:0.031 rcv_ooopack:927 snd_wnd:71040                                                                                                                                    \nESTAB 0      0                   127.0.0.1:49672              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.178/0.258 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:1864 bytes_acked:1865 bytes_received:1717619 segs_out:999 segs_in:1296 data_segs_out:4 data_segs_in:1291 send 650786517bps lastsnd:176 pacing_rate 1297927168bps delivery_rate 503652168bps delivered:5 app_limited busy:1ms rcv_rtt:0.957 rcv_space:82536 rcv_ssthresh:936803 minrtt:0.039 rcv_ooopack:216 snd_wnd:71040                                                                                                                                   \nESTAB 0      48966               127.0.0.1:18443              127.0.0.1:49676\n\t cubic wscale:7,7 rto:201 rtt:0.176/0.108 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:11 ssthresh:5 bytes_sent:5346036 bytes_retrans:226888 bytes_acked:5103220 bytes_received:1832 segs_out:3711 segs_in:1717 data_segs_out:3705 data_segs_in:5 send 724000000bps lastrcv:187 pacing_rate 866338808bps delivery_rate 541941520bps delivered:3640 busy:178ms unacked:11 retrans:0/158 dsack_dups:157 reordering:17 reord_seen:179 rcv_rtt:2 rcv_space:14480 rcv_ssthresh:73848 notsent:33038 minrtt:0.007 rcv_ooopack:1 snd_wnd:1116800                         \nESTAB 0      217200              127.0.0.1:18443              127.0.0.1:49612\n\t cubic wscale:7,7 rto:201 rtt:0.576/0.291 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:15 ssthresh:9 bytes_sent:5904787 bytes_retrans:292570 bytes_acked:5589049 bytes_received:1928 segs_out:4151 segs_in:1934 data_segs_out:4148 data_segs_in:4 send 301666667bps lastsnd:22 lastrcv:202 lastack:27 pacing_rate 361686032bps delivery_rate 159705880bps delivered:4050 busy:189ms unacked:16 retrans:0/205 dsack_dups:204 reordering:18 reord_seen:204 rcv_rtt:3 rcv_space:14480 rcv_ssthresh:70952 notsent:194032 minrtt:0.007 snd_wnd:1056384                \nESTAB 19216  0                   127.0.0.1:49614              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.252/0.472 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:1832 bytes_acked:1833 bytes_received:6362168 segs_out:1991 segs_in:4726 data_segs_out:4 data_segs_in:4721 send 459682540bps lastsnd:195 lastrcv:2 lastack:2 pacing_rate 916183880bps delivery_rate 827428568bps delivered:5 app_limited busy:2ms rcv_rtt:1 rcv_space:236844 rcv_ssthresh:2254757 minrtt:0.019 rcv_ooopack:602 snd_wnd:71040                                                                                                                 "
+        }
+      }
+    },
+    "up1_cpu": {
+      "server_ms": 640,
+      "client_ms": 470,
+      "mib": 96,
+      "server_ms_per_mib": 6.67,
+      "client_ms_per_mib": 4.9
+    },
+    "up1": {
+      "event": "summary",
+      "mode": "up",
+      "median_mbps": 175.105,
+      "min_mbps": 154.114,
+      "max_mbps": 186.0,
+      "runs": 3,
+      "sys": {
+        "cpu": {
+          "busy_ms": 1500,
+          "user_ms": 350,
+          "system_ms": 550,
+          "softirq_ms": 600,
+          "irq_ms": 0,
+          "nproc": 6
+        },
+        "ram": {
+          "mem_total_kb": 4008436,
+          "mem_available_before_kb": 3317188,
+          "mem_available_after_kb": 3314312,
+          "used_kb": 694124,
+          "available_min_kb": 3307140
+        },
+        "engine_rss_kb": {
+          "server": {
+            "hwm_kb": 38944,
+            "rss_kb": 38944,
+            "rss_max_kb": 38944
+          },
+          "client": {
+            "hwm_kb": 36960,
+            "rss_kb": 36512,
+            "rss_max_kb": 37468
+          }
+        }
+      },
+      "evidence": {
+        "qdisc": {
+          "dropped": 38,
+          "overlimits": 0,
+          "requeues": 0,
+          "packets": 345201,
+          "bytes": 430481273,
+          "drop_rate_pct": 0.01,
+          "backlog_max": 0,
+          "qdisc_total": {
+            "dropped": 332,
+            "overlimits": 0,
+            "requeues": 0,
+            "packets": 2153804,
+            "bytes": 2582077671,
+            "backlog": 0,
+            "drop_rate_pct": 0.02
+          },
+          "qdisc_raw": "qdisc prio 1: root refcnt 2 bands 4 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n Sent 1941325852 bytes 1624201 pkt (dropped 166, overlimits 0 requeues 0) \n backlog 0b 0p requeues 0\nqdisc netem 30: parent 1:3 limit 20000 loss 0.1%\n Sent 527307155 bytes 365876 pkt (dropped 77, overlimits 0 requeues 0) \n backlog 0b 0p requeues 0\nqdisc netem 20: parent 1:2 limit 20000 loss 0.1%\n Sent 113444664 bytes 163727 pkt (dropped 89, overlimits 0 requeues 0) \n backlog 0b 0p requeues 0"
+        },
+        "sock": {
+          "sockets": 3,
+          "retrans": 0,
+          "rtt_ms_last": 5.068,
+          "cwnd_last": 10,
+          "sock_raw": "ESTAB      0      25                  127.0.0.1:18443              127.0.0.1:49702\n\t cubic wscale:7,7 rto:201 rtt:0.035/0.014 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:803 bytes_acked:778 bytes_received:33646522 segs_out:3264 segs_in:23910 data_segs_out:2 data_segs_in:23907 send 3309714286bps lastsnd:4 lastrcv:11 lastack:11 pacing_rate 6480559440bps delivery_rate 340705880bps delivered:2 app_limited busy:4ms unacked:1 rcv_rtt:0.143 rcv_space:105930 rcv_ssthresh:1078785 minrtt:0.034 rcv_ooopack:1020 snd_wnd:63488                                                                                          \nESTAB      0      0                   127.0.0.1:49690              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.109/0.017 ato:40 mss:1448 pmtu:1500 rcvmss:777 advmss:1448 cwnd:36 ssthresh:24 bytes_sent:33862078 bytes_retrans:214292 bytes_acked:33647787 bytes_received:802 segs_out:23898 segs_in:2602 data_segs_out:23894 data_segs_in:2 send 3825908257bps lastsnd:417 lastrcv:414 lastack:414 pacing_rate 4580583976bps delivery_rate 891076920bps delivered:23850 busy:175ms rwnd_limited:111ms(63.4%) retrans:0/152 dsack_dups:123 reordering:49 reord_seen:273 rcv_space:14480 rcv_ssthresh:58368 minrtt:0.008 snd_wnd:413824              \nESTAB      0      0                   127.0.0.1:49694              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.027/0.007 ato:40 mss:1448 pmtu:1500 rcvmss:777 advmss:1448 cwnd:63 ssthresh:63 bytes_sent:34135240 bytes_retrans:488664 bytes_acked:33646577 bytes_received:802 segs_out:24670 segs_in:7615 data_segs_out:24666 data_segs_in:2 send 27029333333bps lastsnd:222 lastrcv:222 lastack:222 pacing_rate 31845469088bps delivery_rate 7079111104bps delivered:24554 app_limited busy:169ms rwnd_limited:1ms(0.6%) retrans:0/354 dsack_dups:342 reordering:58 reord_seen:1693 rcv_space:14480 rcv_ssthresh:58368 minrtt:0.011 snd_wnd:4124672\nESTAB      0      0                   127.0.0.1:49702              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.117/0.013 ato:40 mss:1448 pmtu:1500 rcvmss:778 advmss:1448 cwnd:29 ssthresh:21 bytes_sent:34060134 bytes_retrans:413612 bytes_acked:33646523 bytes_received:803 segs_out:23966 segs_in:3262 data_segs_out:23963 data_segs_in:2 send 2871247863bps lastsnd:11 lastrcv:4 lastack:4 pacing_rate 3419921096bps delivery_rate 815774640bps delivered:23840 busy:203ms rwnd_limited:90ms(44.3%) retrans:0/296 dsack_dups:216 reordering:54 reord_seen:487 rcv_space:14480 rcv_ssthresh:58368 minrtt:0.006 snd_wnd:1078912                   \nESTAB      0      0                   127.0.0.1:18443              127.0.0.1:49694\n\t cubic wscale:7,7 rto:206 rtt:5.058/10.088 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:802 bytes_acked:802 bytes_received:33646576 segs_out:7622 segs_in:24665 data_segs_out:2 data_segs_in:24661 send 22902333bps lastsnd:222 lastrcv:222 lastack:181 pacing_rate 45796736bps delivery_rate 445538456bps delivered:3 app_limited busy:41ms rcv_rtt:0.999 rcv_space:458536 rcv_ssthresh:4124655 minrtt:0.017 rcv_ooopack:3768 snd_wnd:63488                                                                                                  \nESTAB      0      0                   127.0.0.1:18443              127.0.0.1:49690\n\t cubic wscale:7,7 rto:206 rtt:5.068/10.107 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:802 bytes_acked:802 bytes_received:33647786 segs_out:2603 segs_in:23887 data_segs_out:2 data_segs_in:23883 send 22857143bps lastsnd:415 lastrcv:418 lastack:374 pacing_rate 45712024bps delivery_rate 463360000bps delivered:3 app_limited busy:41ms rcv_rtt:0.037 rcv_space:52128 rcv_ssthresh:413812 minrtt:0.017 rcv_ooopack:602 snd_wnd:63488                                                                                                     "
+        }
+      }
+    },
+    "ttfb": {
+      "event": "summary",
+      "median_ms": 3.722,
+      "p95_ms": 4.648,
+      "runs": 30,
+      "errors": 0,
+      "sys": {
+        "cpu": {
+          "busy_ms": 220,
+          "user_ms": 130,
+          "system_ms": 70,
+          "softirq_ms": 20,
+          "irq_ms": 0,
+          "nproc": 6
+        },
+        "ram": {
+          "mem_total_kb": 4008436,
+          "mem_available_before_kb": 3314312,
+          "mem_available_after_kb": 3301388,
+          "used_kb": 707048,
+          "available_min_kb": 3301388
+        },
+        "engine_rss_kb": {
+          "server": {
+            "hwm_kb": 39012,
+            "rss_kb": 39012,
+            "rss_max_kb": 39012
+          },
+          "client": {
+            "hwm_kb": 38192,
+            "rss_kb": 38192,
+            "rss_max_kb": 38192
+          }
+        }
+      },
+      "evidence": {
+        "qdisc": {
+          "dropped": 0,
+          "overlimits": 0,
+          "requeues": 0,
+          "packets": 1800,
+          "bytes": 359631,
+          "drop_rate_pct": 0.0,
+          "backlog_max": 0,
+          "qdisc_total": {
+            "dropped": 332,
+            "overlimits": 0,
+            "requeues": 0,
+            "packets": 2155604,
+            "bytes": 2582437302,
+            "backlog": 0,
+            "drop_rate_pct": 0.02
+          },
+          "qdisc_raw": "qdisc prio 1: root refcnt 2 bands 4 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n Sent 1941577018 bytes 1625584 pkt (dropped 166, overlimits 0 requeues 0) \n backlog 0b 0p requeues 0\nqdisc netem 30: parent 1:3 limit 20000 loss 0.1%\n Sent 527343338 bytes 366056 pkt (dropped 77, overlimits 0 requeues 0) \n backlog 0b 0p requeues 0\nqdisc netem 20: parent 1:2 limit 20000 loss 0.1%\n Sent 113516946 bytes 163964 pkt (dropped 89, overlimits 0 requeues 0) \n backlog 0b 0p requeues 0"
+        },
+        "sock": {
+          "sockets": 33,
+          "retrans": 0,
+          "rtt_ms_last": 5.068,
+          "cwnd_last": 10,
+          "sock_raw": "ESTAB      0      0                   127.0.0.1:18443              127.0.0.1:49794\n\t cubic wscale:7,7 rto:206 rtt:5.19/10.352 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:803 bytes_acked:803 bytes_received:1864 segs_out:5 segs_in:8 data_segs_out:2 data_segs_in:4 send 22319846bps lastsnd:102 lastrcv:102 lastack:60 pacing_rate 44636464bps delivery_rate 445538456bps delivered:3 app_limited busy:42ms rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.016 snd_wnd:63488                                                                                                                                           \nESTAB      0      25                  127.0.0.1:18443              127.0.0.1:49958\n\t cubic wscale:7,7 rto:201 rtt:0.016/0.008 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:803 bytes_acked:778 bytes_received:1896 segs_out:5 segs_in:7 data_segs_out:2 data_segs_in:4 send 7240000000bps lastsnd:4 lastrcv:4 lastack:4 pacing_rate 14041212120bps delivery_rate 429037032bps delivered:2 app_limited busy:4ms unacked:1 rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.015 snd_wnd:63488                                                                                                                                  \nESTAB      0      0                   127.0.0.1:18443              127.0.0.1:49784\n\t cubic wscale:7,7 rto:206 rtt:5.034/10.041 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:802 bytes_acked:802 bytes_received:1928 segs_out:5 segs_in:8 data_segs_out:2 data_segs_in:4 send 23011522bps lastsnd:106 lastrcv:106 lastack:65 pacing_rate 46015040bps delivery_rate 445538456bps delivered:3 app_limited busy:41ms rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.016 snd_wnd:63488                                                                                                                                          \nESTAB      0      0                   127.0.0.1:18443              127.0.0.1:49702\n\t cubic wscale:7,7 rto:206 rtt:5.063/10.065 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:803 bytes_acked:803 bytes_received:33646522 segs_out:3264 segs_in:23911 data_segs_out:2 data_segs_in:23907 send 22879716bps lastsnd:156 lastrcv:163 lastack:115 pacing_rate 45756040bps delivery_rate 340705880bps delivered:3 app_limited busy:41ms rcv_rtt:0.143 rcv_space:105930 rcv_ssthresh:1078785 minrtt:0.034 rcv_ooopack:1020 snd_wnd:63488                                                                                                  \nESTAB      0      0                   127.0.0.1:18443              127.0.0.1:49816\n\t cubic wscale:7,7 rto:206 rtt:5.212/10.397 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:802 bytes_acked:802 bytes_received:1896 segs_out:5 segs_in:8 data_segs_out:2 data_segs_in:4 send 22225633bps lastsnd:91 lastrcv:91 lastack:50 pacing_rate 44451264bps delivery_rate 429037032bps delivered:3 app_limited busy:41ms rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.015 snd_wnd:63488                                                                                                                                            \nESTAB      0      0                   127.0.0.1:49794              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.048/0.062 ato:40 mss:1448 pmtu:1500 rcvmss:778 advmss:1448 cwnd:10 bytes_sent:1864 bytes_acked:1865 bytes_received:803 segs_out:8 segs_in:6 data_segs_out:4 data_segs_in:2 send 2413333333bps lastsnd:102 lastrcv:102 lastack:102 pacing_rate 4764627248bps delivery_rate 437132072bps delivered:5 app_limited busy:1ms rcv_space:14480 rcv_ssthresh:58368 minrtt:0.019 snd_wnd:71040                                                                                                                                                 \nESTAB      0      0                   127.0.0.1:49746              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.048/0.048 ato:40 mss:1448 pmtu:1500 rcvmss:776 advmss:1448 cwnd:10 bytes_sent:1832 bytes_acked:1833 bytes_received:801 segs_out:8 segs_in:6 data_segs_out:4 data_segs_in:2 send 2413333333bps lastsnd:122 lastrcv:122 lastack:122 pacing_rate 4789250640bps delivery_rate 702060600bps delivered:5 app_limited rcv_space:14480 rcv_ssthresh:58368 minrtt:0.028 snd_wnd:71040                                                                                                                                                          \nESTAB      0      25                  127.0.0.1:18443              127.0.0.1:49936\n\t cubic wscale:7,7 rto:201 rtt:0.017/0.008 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:802 bytes_acked:777 bytes_received:1832 segs_out:5 segs_in:7 data_segs_out:2 data_segs_in:4 send 6814117647bps lastsnd:37 lastrcv:37 lastack:37 pacing_rate 13528759120bps delivery_rate 463360000bps delivered:2 app_limited busy:37ms unacked:1 rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.016 snd_wnd:63488                                                                                                                              \nESTAB      0      0                   127.0.0.1:18443              127.0.0.1:49926\n\t cubic wscale:7,7 rto:206 rtt:5.062/10.096 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:802 bytes_acked:802 bytes_received:1896 segs_out:5 segs_in:8 data_segs_out:2 data_segs_in:4 send 22884235bps lastsnd:41 lastrcv:41 pacing_rate 45766208bps delivery_rate 351030296bps delivered:3 app_limited busy:41ms rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.016 snd_wnd:63488                                                                                                                                                       \nESTAB      0      0                   127.0.0.1:18443              127.0.0.1:49758\n\t cubic wscale:7,7 rto:206 rtt:5.043/10.045 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:801 bytes_acked:801 bytes_received:1864 segs_out:5 segs_in:8 data_segs_out:2 data_segs_in:4 send 22970454bps lastsnd:118 lastrcv:118 lastack:77 pacing_rate 45937488bps delivery_rate 429037032bps delivered:3 app_limited busy:41ms rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.024 snd_wnd:63488                                                                                                                                          \nESTAB      0      0                   127.0.0.1:18443              127.0.0.1:49912\n\t cubic wscale:7,7 rto:206 rtt:5.03/10.033 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:802 bytes_acked:802 bytes_received:1928 segs_out:5 segs_in:8 data_segs_out:2 data_segs_in:4 send 23029821bps lastsnd:45 lastrcv:45 lastack:4 pacing_rate 46052768bps delivery_rate 463360000bps delivered:3 app_limited busy:41ms rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.016 snd_wnd:63488                                                                                                                                              \nESTAB      0      0                   127.0.0.1:49784              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.046/0.061 ato:40 mss:1448 pmtu:1500 rcvmss:777 advmss:1448 cwnd:10 bytes_sent:1928 bytes_acked:1929 bytes_received:802 segs_out:8 segs_in:6 data_segs_out:4 data_segs_in:2 send 2518260870bps lastsnd:106 lastrcv:106 lastack:106 pacing_rate 4969008040bps delivery_rate 747354832bps delivered:5 app_limited rcv_space:14480 rcv_ssthresh:58368 minrtt:0.018 snd_wnd:71040                                                                                                                                                          \nESTAB      0      0                   127.0.0.1:49958              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.041/0.051 ato:40 mss:1448 pmtu:1500 rcvmss:778 advmss:1448 cwnd:10 bytes_sent:1896 bytes_acked:1897 bytes_received:803 segs_out:7 segs_in:6 data_segs_out:4 data_segs_in:2 send 2825365854bps lastsnd:4 lastrcv:4 lastack:4 pacing_rate 5582650600bps delivery_rate 724000000bps delivered:5 app_limited rcv_space:14480 rcv_ssthresh:58368 minrtt:0.018 snd_wnd:71040                                                                                                                                                                \nESTAB      0      25                  127.0.0.1:18443              127.0.0.1:49948\n\t cubic wscale:7,7 rto:201 rtt:0.017/0.008 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:802 bytes_acked:777 bytes_received:1896 segs_out:5 segs_in:7 data_segs_out:2 data_segs_in:4 send 6814117647bps lastsnd:11 lastrcv:12 lastack:12 pacing_rate 13334100712bps delivery_rate 429037032bps delivered:2 app_limited busy:11ms unacked:1 rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.016 snd_wnd:63488                                                                                                                              \nESTAB      0      0                   127.0.0.1:18443              127.0.0.1:49902\n\t cubic wscale:7,7 rto:206 rtt:5.045/10.06 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:801 bytes_acked:801 bytes_received:1832 segs_out:5 segs_in:8 data_segs_out:2 data_segs_in:4 send 22961348bps lastsnd:53 lastrcv:53 lastack:12 pacing_rate 45921552bps delivery_rate 463360000bps delivered:3 app_limited busy:41ms rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.017 snd_wnd:63488                                                                                                                                             \nESTAB      0      25                  127.0.0.1:18443              127.0.0.1:49954\n\t cubic wscale:7,7 rto:201 rtt:0.016/0.007 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:803 bytes_acked:778 bytes_received:1928 segs_out:5 segs_in:7 data_segs_out:2 data_segs_in:4 send 7240000000bps lastsnd:7 lastrcv:8 lastack:8 pacing_rate 13729185184bps delivery_rate 503652168bps delivered:2 app_limited busy:7ms unacked:1 rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.016 snd_wnd:63488                                                                                                                                  \nESTAB      0      0                   127.0.0.1:49738              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.048/0.064 ato:40 mss:1448 pmtu:1500 rcvmss:777 advmss:1448 cwnd:10 bytes_sent:1832 bytes_acked:1833 bytes_received:802 segs_out:8 segs_in:6 data_segs_out:4 data_segs_in:2 send 2413333333bps lastsnd:126 lastrcv:126 lastack:126 pacing_rate 4826666664bps delivery_rate 724000000bps delivered:5 app_limited rcv_space:14480 rcv_ssthresh:58368 minrtt:0.018 snd_wnd:71040                                                                                                                                                          \nESTAB      0      0                   127.0.0.1:18443              127.0.0.1:49874\n\t cubic wscale:7,7 rto:206 rtt:5.153/10.278 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:802 bytes_acked:802 bytes_received:1896 segs_out:5 segs_in:8 data_segs_out:2 data_segs_in:4 send 22480109bps lastsnd:65 lastrcv:65 lastack:23 pacing_rate 44959120bps delivery_rate 413714280bps delivered:3 app_limited busy:42ms rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.016 snd_wnd:63488                                                                                                                                            \nESTAB      0      0                   127.0.0.1:49912              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.043/0.054 ato:40 mss:1448 pmtu:1500 rcvmss:777 advmss:1448 cwnd:10 bytes_sent:1928 bytes_acked:1929 bytes_received:802 segs_out:8 segs_in:6 data_segs_out:4 data_segs_in:2 send 2693953488bps lastsnd:45 lastrcv:45 lastack:45 pacing_rate 5372289848bps delivery_rate 661942856bps delivered:5 app_limited rcv_space:14480 rcv_ssthresh:58368 minrtt:0.018 snd_wnd:71040                                                                                                                                                             \nESTAB      0      0                   127.0.0.1:49808              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.037/0.042 ato:40 mss:1448 pmtu:1500 rcvmss:777 advmss:1448 cwnd:10 bytes_sent:1928 bytes_acked:1929 bytes_received:802 segs_out:8 segs_in:6 data_segs_out:4 data_segs_in:2 send 3130810811bps lastsnd:95 lastrcv:95 lastack:95 pacing_rate 6261621616bps delivery_rate 702060600bps delivered:5 app_limited rcv_space:14480 rcv_ssthresh:58368 minrtt:0.018 snd_wnd:71040                                                                                                                                                             "
+        }
+      }
+    },
+    "conns": {
+      "event": "conns",
+      "count": 200,
+      "par": 4,
+      "success": 200,
+      "errors": 0,
+      "seconds": 0.495584,
+      "conns_per_sec": 403.564,
+      "sys": {
+        "cpu": {
+          "busy_ms": 1340,
+          "user_ms": 880,
+          "system_ms": 370,
+          "softirq_ms": 90,
+          "irq_ms": 0,
+          "nproc": 6
+        },
+        "ram": {
+          "mem_total_kb": 4008436,
+          "mem_available_before_kb": 3301388,
+          "mem_available_after_kb": 3270132,
+          "used_kb": 738304,
+          "available_min_kb": 3270132
+        },
+        "engine_rss_kb": {
+          "server": {
+            "hwm_kb": 50044,
+            "rss_kb": 50044,
+            "rss_max_kb": 50044
+          },
+          "client": {
+            "hwm_kb": 52780,
+            "rss_kb": 52780,
+            "rss_max_kb": 52780
+          }
+        }
+      },
+      "evidence": {
+        "qdisc": {
+          "dropped": 4,
+          "overlimits": 0,
+          "requeues": 0,
+          "packets": 12044,
+          "bytes": 2398891,
+          "drop_rate_pct": 0.03,
+          "backlog_max": 0,
+          "qdisc_total": {
+            "dropped": 336,
+            "overlimits": 0,
+            "requeues": 0,
+            "packets": 2167648,
+            "bytes": 2584836193,
+            "backlog": 0,
+            "drop_rate_pct": 0.02
+          },
+          "qdisc_raw": "qdisc prio 1: root refcnt 2 bands 4 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n Sent 1943251447 bytes 1634819 pkt (dropped 168, overlimits 0 requeues 0) \n backlog 0b 0p requeues 0\nqdisc netem 30: parent 1:3 limit 20000 loss 0.1%\n Sent 527584771 bytes 367259 pkt (dropped 77, overlimits 0 requeues 0) \n backlog 0b 0p requeues 0\nqdisc netem 20: parent 1:2 limit 20000 loss 0.1%\n Sent 113999975 bytes 165570 pkt (dropped 91, overlimits 0 requeues 0) \n backlog 0b 0p requeues 0"
+        },
+        "sock": {
+          "sockets": 232,
+          "retrans": 0,
+          "rtt_ms_last": 0.048,
+          "cwnd_last": 10,
+          "sock_raw": "ESTAB      0      25                  127.0.0.1:18443              127.0.0.1:50892\n\t cubic wscale:7,7 rto:201 rtt:0.015/0.006 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:802 bytes_acked:777 bytes_received:1896 segs_out:5 segs_in:7 data_segs_out:2 data_segs_in:4 send 7722666667bps lastsnd:9 lastrcv:10 lastack:10 pacing_rate 14947096768bps delivery_rate 609684208bps delivered:2 app_limited busy:9ms unacked:1 rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.015 snd_wnd:63488                                                                                                                                \nESTAB      0      0                   127.0.0.1:49678              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.036/0.043 ato:40 mss:1448 pmtu:1500 rcvmss:778 advmss:1448 cwnd:10 bytes_sent:1928 bytes_acked:1929 bytes_received:803 segs_out:8 segs_in:6 data_segs_out:4 data_segs_in:2 send 3217777778bps lastsnd:367 lastrcv:367 lastack:367 pacing_rate 6304217680bps delivery_rate 724000000bps delivered:5 app_limited rcv_space:14480 rcv_ssthresh:58368 minrtt:0.017 snd_wnd:71040                                                                                                                                                          \nESTAB      0      0                   127.0.0.1:50384              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.06/0.068 ato:40 mss:1448 pmtu:1500 rcvmss:776 advmss:1448 cwnd:10 bytes_sent:1928 bytes_acked:1929 bytes_received:801 segs_out:8 segs_in:6 data_segs_out:4 data_segs_in:2 send 1930666667bps lastsnd:151 lastrcv:151 lastack:151 pacing_rate 3845311200bps delivery_rate 503652168bps delivered:5 app_limited busy:1ms rcv_space:14480 rcv_ssthresh:58368 minrtt:0.03 snd_wnd:71040                                                                                                                                                   \nESTAB      0      0                   127.0.0.1:50322              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.047/0.063 ato:40 mss:1448 pmtu:1500 rcvmss:776 advmss:1448 cwnd:10 bytes_sent:1832 bytes_acked:1833 bytes_received:801 segs_out:8 segs_in:6 data_segs_out:4 data_segs_in:2 send 2464680851bps lastsnd:170 lastrcv:170 lastack:170 pacing_rate 4864671912bps delivery_rate 681411760bps delivered:5 app_limited rcv_space:14480 rcv_ssthresh:58368 minrtt:0.018 snd_wnd:71040                                                                                                                                                          \nESTAB      0      0                   127.0.0.1:18443              127.0.0.1:49750\n\t cubic wscale:7,7 rto:206 rtt:5.216/10.391 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:802 bytes_acked:802 bytes_received:1896 segs_out:5 segs_in:8 data_segs_out:2 data_segs_in:4 send 22208589bps lastsnd:347 lastrcv:348 lastack:305 pacing_rate 44409728bps delivery_rate 643555552bps delivered:3 app_limited busy:42ms rcv_rtt:2 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.018 snd_wnd:63488                                                                                                                                         \nESTAB      0      0                   127.0.0.1:50852              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.042/0.048 ato:40 mss:1448 pmtu:1500 rcvmss:777 advmss:1448 cwnd:10 bytes_sent:1832 bytes_acked:1833 bytes_received:802 segs_out:7 segs_in:6 data_segs_out:4 data_segs_in:2 send 2758095238bps lastsnd:18 lastrcv:17 lastack:18 pacing_rate 5403615160bps delivery_rate 463360000bps delivered:5 app_limited busy:1ms rcv_space:14480 rcv_ssthresh:58368 minrtt:0.018 snd_wnd:71040                                                                                                                                                    \nESTAB      0      0                   127.0.0.1:50192              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.047/0.063 ato:40 mss:1448 pmtu:1500 rcvmss:778 advmss:1448 cwnd:10 bytes_sent:1832 bytes_acked:1833 bytes_received:803 segs_out:8 segs_in:6 data_segs_out:4 data_segs_in:2 send 2464680851bps lastsnd:209 lastrcv:209 lastack:209 pacing_rate 4916286472bps delivery_rate 747354832bps delivered:5 app_limited rcv_space:14480 rcv_ssthresh:58368 minrtt:0.016 snd_wnd:71040                                                                                                                                                          \nESTAB      0      0                   127.0.0.1:50822              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.046/0.058 ato:40 mss:1448 pmtu:1500 rcvmss:776 advmss:1448 cwnd:10 bytes_sent:1832 bytes_acked:1833 bytes_received:801 segs_out:7 segs_in:6 data_segs_out:4 data_segs_in:2 send 2518260870bps lastsnd:25 lastrcv:24 lastack:24 pacing_rate 5022872624bps delivery_rate 643555552bps delivered:5 app_limited busy:1ms rcv_space:14480 rcv_ssthresh:58368 minrtt:0.019 snd_wnd:71040                                                                                                                                                    \nESTAB      0      0                   127.0.0.1:49916              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.037/0.039 ato:40 mss:1448 pmtu:1500 rcvmss:778 advmss:1448 cwnd:10 bytes_sent:1896 bytes_acked:1897 bytes_received:803 segs_out:8 segs_in:6 data_segs_out:4 data_segs_in:2 send 3130810811bps lastsnd:291 lastrcv:291 lastack:291 pacing_rate 6198795984bps delivery_rate 772266664bps delivered:5 app_limited rcv_space:14480 rcv_ssthresh:58368 minrtt:0.02 snd_wnd:71040                                                                                                                                                           \nESTAB      0      0                   127.0.0.1:50880              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.047/0.064 ato:40 mss:1448 pmtu:1500 rcvmss:778 advmss:1448 cwnd:10 bytes_sent:1896 bytes_acked:1897 bytes_received:803 segs_out:7 segs_in:6 data_segs_out:4 data_segs_in:2 send 2464680851bps lastsnd:12 lastrcv:12 lastack:12 pacing_rate 4916286472bps delivery_rate 724000000bps delivered:5 app_limited busy:1ms rcv_space:14480 rcv_ssthresh:58368 minrtt:0.017 snd_wnd:71040                                                                                                                                                    \nESTAB      0      0                   127.0.0.1:18443              127.0.0.1:50186\n\t cubic wscale:7,7 rto:206 rtt:5.083/10.138 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:803 bytes_acked:803 bytes_received:1928 segs_out:5 segs_in:8 data_segs_out:2 data_segs_in:4 send 22789691bps lastsnd:447 lastrcv:448 lastack:406 pacing_rate 45579376bps delivery_rate 609684208bps delivered:3 app_limited busy:41ms rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.016 snd_wnd:63488                                                                                                                                         \nESTAB      0      0                   127.0.0.1:50036              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.057/0.074 ato:40 mss:1448 pmtu:1500 rcvmss:776 advmss:1448 cwnd:10 bytes_sent:1832 bytes_acked:1833 bytes_received:801 segs_out:8 segs_in:6 data_segs_out:4 data_segs_in:2 send 2032280702bps lastsnd:237 lastrcv:237 lastack:237 pacing_rate 4064561400bps delivery_rate 724000000bps delivered:5 app_limited busy:1ms rcv_space:14480 rcv_ssthresh:58368 minrtt:0.023 snd_wnd:71040                                                                                                                                                 \nESTAB      0      0                   127.0.0.1:50480              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.054/0.06 ato:40 mss:1448 pmtu:1500 rcvmss:778 advmss:1448 cwnd:10 bytes_sent:1832 bytes_acked:1833 bytes_received:803 segs_out:8 segs_in:6 data_segs_out:4 data_segs_in:2 send 2145185185bps lastsnd:121 lastrcv:121 lastack:121 pacing_rate 4280461888bps delivery_rate 747354832bps delivered:5 app_limited rcv_space:14480 rcv_ssthresh:58368 minrtt:0.028 snd_wnd:71040                                                                                                                                                           \nESTAB      0      0                   127.0.0.1:18443              127.0.0.1:50234\n\t cubic wscale:7,7 rto:206 rtt:5.12/10.193 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:801 bytes_acked:801 bytes_received:1832 segs_out:5 segs_in:8 data_segs_out:2 data_segs_in:4 send 22625000bps lastsnd:197 lastrcv:198 lastack:156 pacing_rate 45243368bps delivery_rate 373677416bps delivered:3 app_limited busy:41ms rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.028 snd_wnd:63488                                                                                                                                          \nESTAB      0      25                  127.0.0.1:18443              127.0.0.1:50872\n\t cubic wscale:7,7 rto:201 rtt:0.016/0.008 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:802 bytes_acked:777 bytes_received:1832 segs_out:5 segs_in:7 data_segs_out:2 data_segs_in:4 send 7240000000bps lastsnd:14 lastrcv:14 lastack:14 pacing_rate 14041212120bps delivery_rate 429037032bps delivered:2 app_limited busy:14ms unacked:1 rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.015 snd_wnd:63488                                                                                                                              \nESTAB      0      0                   127.0.0.1:18443              127.0.0.1:49502\n\t cubic wscale:7,7 rto:206 rtt:5.105/10.164 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:803 bytes_acked:803 bytes_received:1864 segs_out:5 segs_in:8 data_segs_out:2 data_segs_in:4 send 22691479bps lastsnd:412 lastrcv:413 lastack:371 pacing_rate 45378512bps delivery_rate 681411760bps delivered:3 app_limited busy:41ms rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.017 snd_wnd:63488                                                                                                                                         \nESTAB      0      0                   127.0.0.1:18443              127.0.0.1:49978\n\t cubic wscale:7,7 rto:206 rtt:5.141/10.242 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:802 bytes_acked:802 bytes_received:1928 segs_out:5 segs_in:8 data_segs_out:2 data_segs_in:4 send 22532581bps lastsnd:250 lastrcv:251 lastack:209 pacing_rate 45058584bps delivery_rate 643555552bps delivered:3 app_limited busy:41ms rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.018 snd_wnd:63488                                                                                                                                         \nESTAB      0      0                   127.0.0.1:50764              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.236/0.44 ato:40 mss:1448 pmtu:1500 rcvmss:778 advmss:1448 cwnd:10 bytes_sent:1928 bytes_acked:1929 bytes_received:803 segs_out:7 segs_in:6 data_segs_out:4 data_segs_in:2 send 490847458bps lastsnd:36 lastrcv:33 lastack:33 pacing_rate 980137488bps delivery_rate 565073168bps delivered:5 app_limited busy:2ms rcv_space:14480 rcv_ssthresh:58368 minrtt:0.018 snd_wnd:71040                                                                                                                                                       \nESTAB      0      0                   127.0.0.1:49570              127.0.0.1:18443\n\t cubic wscale:7,7 rto:201 rtt:0.038/0.045 ato:40 mss:1448 pmtu:1500 rcvmss:778 advmss:1448 cwnd:10 bytes_sent:1832 bytes_acked:1833 bytes_received:803 segs_out:8 segs_in:6 data_segs_out:4 data_segs_in:2 send 3048421053bps lastsnd:398 lastrcv:397 lastack:397 pacing_rate 6037263840bps delivery_rate 724000000bps delivered:5 app_limited rcv_space:14480 rcv_ssthresh:58368 minrtt:0.018 snd_wnd:71040                                                                                                                                                          \nESTAB      0      0                   127.0.0.1:18443              127.0.0.1:49794\n\t cubic wscale:7,7 rto:206 rtt:5.19/10.352 ato:40 mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 bytes_sent:803 bytes_acked:803 bytes_received:1864 segs_out:5 segs_in:8 data_segs_out:2 data_segs_in:4 send 22319846bps lastsnd:618 lastrcv:618 lastack:576 pacing_rate 44636464bps delivery_rate 445538456bps delivered:3 app_limited busy:42ms rcv_rtt:1 rcv_space:14480 rcv_ssthresh:70952 minrtt:0.016 snd_wnd:63488                                                                                                                                          "
+        }
+      }
+    }
+  },
+  "machine": {
+    "cpu_model": "Intel(R) Xeon(R) CPU E5-2698B v3 @ 2.00GHz",
+    "nproc": 6,
+    "mem_total_kb": 4008436,
+    "mem_available_kb_at_start": 3297540
+  },
+  "valid": true,
+  "invalid_reasons": []
+}
