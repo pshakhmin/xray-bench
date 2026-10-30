@@ -74,10 +74,27 @@ jobs:
       - name: Tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq iproute2 curl openssl ethtool
+          sudo apt-get install -y -qq iproute2 curl openssl ethtool psmisc
 
-      # The delay, the MTU/offload switch and the qdisc need CAP_NET_ADMIN.
-      # Without them the RTT 50 ms cells are skipped instead of faked.
+      # The runner is a persistent VM: a previous run can leave an engine bound
+      # to a tunnel port (seen: a stale unbihex-cli on 10808). stand.py refuses
+      # to measure in that case, by design, so free the ports here instead of
+      # loosening that check.
+      - name: Free bench ports
+        run: |
+          ports="18443 18444 18453 18463 18473 10808 18446 19000"
+          pattern=':(18443|18444|18453|18463|18473|10808|18446|19000) '
+          for attempt in 1 2 3 4; do
+            if ! ss -lnt | grep -qE "$pattern"; then break; fi
+            for p in $ports; do sudo fuser -k -n tcp "$p" 2>/dev/null || true; done
+            sleep 2
+          done
+          if ss -lnt | grep -E "$pattern"; then
+            echo "::error::a bench port is still held by another process"
+            exit 1
+          fi
+          echo "ports free"
+
       - name: Probe link emulation
         id: netem
         run: |
