@@ -1824,6 +1824,14 @@ DEFAULT_SCENARIOS = ["xray_reality", "xray_xhttp", "singbox_reality", "unbihex_r
                      "xraycl_ubisrv", "ubicl_xraysrv"]
 
 
+def saved_result(path):
+    """The JSON a measure() call just wrote, or None if it cannot be read."""
+    try:
+        return json.loads(Path(path).read_text())
+    except (OSError, ValueError):
+        return None
+
+
 def bench_matrix(scenarios, rtts, quick, runs, control, profile="wan", loss=None, rate=None,
                  retries=0):
     produced = []
@@ -1840,9 +1848,12 @@ def bench_matrix(scenarios, rtts, quick, runs, control, profile="wan", loss=None
             # A collapsed cell is a measurement failure, not a result: retry it
             # rather than publish it or, worse, quietly keep the best attempt.
             attempt = 0
-            while not result.get("valid", True) and attempt < retries:
+            while attempt < retries:
+                data = saved_result(result)
+                if data is None or data.get("valid", True):
+                    break
                 attempt += 1
-                say("  invalid: " + "; ".join(result.get("invalid_reasons") or ["?"]) +
+                say("  invalid: " + "; ".join(data.get("invalid_reasons") or ["?"]) +
                     f" — retry {attempt}/{retries}")
                 up(scenario)
                 result = measure(scenario, rtt, quick, runs, label="",
