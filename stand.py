@@ -9,7 +9,8 @@ Subcommands:
   report [<glob>]               markdown table from results/*.json
   check <scenario>              negative controls: the tunnel must be used
   dns <scenario> <sub> [N]      DNS scenarios through the stand: cold, warm,
-                                stampede, dead, leak (see tools/dnsd.py)
+                                stampede, dead, leak, soak (see tools/dnsd.py)
+                                soak = N names, two passes, cache/RSS knobs
 
 Everything the result depends on is recorded in the result file: binary
 hashes, versions, kernel, sysctls, netem parameters, git commit.
@@ -40,6 +41,9 @@ BENCH = ROOT / "bench/target/release/bench"
 STATE = ROOT / ".state"
 PIDS = STATE / "pids"
 RESULTS = ROOT / "results"
+
+sys.path.insert(0, str(ROOT / "tools"))
+import rss as rssmem  # noqa: E402  (VmRSS sampling + a big zone)
 
 SCENARIOS = json.load(open(ROOT / "lib/scenarios.json"))
 
@@ -174,7 +178,10 @@ def apply_link(profile, rtt, loss=None, rate=None):
     _load_original_link()
     if profile == "wan":
         mtu, want_offload = 1500, False
-        jitter_ms = 2
+        # Jitter without delay is pure reordering: on a 0 ms link it pins cwnd at
+        # the initial window (measured: 2.8 MB/s on a 4-vCPU runner instead of
+        # >100). Apply it only when there is a delay for it to perturb.
+        jitter_ms = min(2, max(0, rtt // 2 // 5)) if rtt > 0 else 0
         loss_pct = 0.1 if loss is None else float(loss)
     else:
         mtu, want_offload = 65536, True
@@ -938,7 +945,7 @@ def dns_config(scenario, upstreams, dns_servers=False):
     return out
 
 
-def start_dnsd(tag, port, delay_ms=0, fail=False, refuse=False, no_soa=False):
+def start_dnsd(tag, port, delay_ms=0, fail=False, refuse=False, no_soa=False, zone=None):
     stop_dnsd(tag)
     if sh(f"ss -lnt | grep -q ':{port} '").returncode == 0:
         sys.exit(f"dnsd ({tag}): port {port} is already in use by another process; "
@@ -957,6 +964,8 @@ def start_dnsd(tag, port, delay_ms=0, fail=False, refuse=False, no_soa=False):
         cmd.append("--refuse")
     if no_soa:
         cmd.append("--no-soa")
+    if zone is not None:
+        cmd.extend(["--zone", str(zone)])
     out = open(ROOT / "logs" / f"dnsd-{tag}.log", "w")
     p = subprocess.Popen(cmd, cwd=ROOT, stdout=out, stderr=out, stdin=subprocess.DEVNULL,
                          start_new_session=True)
@@ -1394,6 +1403,122 @@ def dns_run(scenario, sub, n, delay_ms, label, rtt, timeout, dns_servers=False,
         set_rtt(0)
 
 
+
+def save_soak_result(scenario, n, label, rtt, dnsd_info, zone, extra):
+    result = provenance(scenario, rtt)
+    result["kind"] = "dns"
+    result["subcommand"] = "soak"
+    result["n"] = n
+    result["label"] = label
+    result["engine"] = SCENARIOS[scenario]["start"][0]["bin"]
+    result["dnsd"] = {
+        "upstreams": [{"port": u["port"], "mode": u["mode"], "delay_ms": u["delay_ms"]}
+                      for u in dnsd_info],
+        "zone": str(Path(zone).relative_to(ROOT)),
+        "zone_names": len(json.loads(Path(zone).read_text())["names"]),
+    }
+    result.update(extra)
+    RESULTS.mkdir(exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    path = RESULTS / f"dns-{scenario}-soak-{label}-{stamp}.json"
+    path.write_text(json.dumps(result, indent=2))
+    say(json.dumps({"scenario": scenario, "sub": "soak", "n": n, "label": label,
+                    "cache_size": extra["cache_size"],
+                    "disable_cache": extra["disable_cache"],
+                    "passes_ms_per_op": extra["passes_ms_per_op"],
+                    "rss_delta_peak_kb": extra["rss_kb"]["delta_peak"],
+                    "queries": extra["queries"]["total"],
+                    "checks": extra["checks"]}, indent=2))
+    return path
+
+
+def soak_run(scenario, n, cache, no_cache, passes, delay_ms, label, rtt):
+    """N names, several passes, optional cache knobs, RSS of server and client.
+
+    Answers what the other DNS subcommands cannot: what a full cache costs in
+    memory, and what it saves on a repeat lookup when the resolver is not local.
+    """
+    if scenario != "unbihex_release":
+        sys.exit("dns soak: only unbihex_release is supported; it requires an engine "
+                 "that answers with dns.cache_size / dns.disable_cache")
+    if not (ROOT / ".state/keys.env").exists():
+        say("no rendered configs yet; calling setup.sh")
+        subprocess.run([str(ROOT / "setup.sh")], cwd=ROOT, check=True)
+    RESULTS.mkdir(exist_ok=True)
+    ensure_sink6()
+    set_rtt(rtt)
+    zone = STATE / "soak-zone.json"
+    names = rssmem.write_zone(zone, n)
+    dnsd = start_dnsd("soak", DNS_BASE_PORT, delay_ms, zone=zone)
+    clean = [dnsd]
+    try:
+        base = json.loads((ROOT / "configs/unbihex-testserver-reality.json").read_text())
+        dns_cfg = {"upstream": [f"127.0.0.1:{DNS_BASE_PORT}"], "ttl": 5}
+        if cache:
+            dns_cfg["cache_size"] = int(cache)
+        if no_cache:
+            dns_cfg["disable_cache"] = True
+        base["dns"] = dns_cfg
+        cfg = ROOT / "configs/soak.json"
+        cfg.write_text(json.dumps(base, indent=2))
+
+        clone = copy.deepcopy(SCENARIOS[scenario])
+        for proc in clone["start"]:
+            if proc["name"] == "server":
+                args = list(proc["args"])
+                args[args.index("-c") + 1] = str(cfg.relative_to(ROOT))
+                proc["args"] = args
+        SCENARIOS[scenario] = clone
+
+        up(scenario)
+        port = socks_port(scenario)
+        server_pid = int(pid_file(scenario, "server").read_text())
+        client_pid = int(pid_file(scenario, "client").read_text())
+        start = {"server": rssmem.rss_kb(server_pid), "client": rssmem.rss_kb(client_pid)}
+        sampler = rssmem.Sampler({"server": server_pid, "client": client_pid})
+        sampler.start()
+
+        errors = []
+        timings = []
+        for _ in range(passes):
+            t0 = time.time()
+            for name in names:
+                try:
+                    socks_probe(port, name, 20)
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(str(exc)[:120])
+            timings.append(time.time() - t0)
+        peak = sampler.finish()
+        end = {"server": rssmem.rss_kb(server_pid), "client": rssmem.rss_kb(client_pid)}
+        stop(scenario)
+        stop_dnsd("soak")
+        clean = []
+        log = Path(dnsd["log"])
+        queries = len(log.read_text().splitlines()) if log.exists() else 0
+        per_op = [round(t * 1000 / max(1, n), 2) for t in timings]
+        extra = {
+            "cache_size": int(cache) if cache else None,
+            "disable_cache": no_cache,
+            "dns_delay_ms": delay_ms,
+            "passes": passes,
+            "passes_ms_per_op": per_op,
+            "rss_kb": {"start": start, "peak": peak, "end": end,
+                       "delta_peak": {k: (peak[k] or 0) - (start[k] or 0) for k in start}},
+            "queries": {"received": queries > 0, "total": queries,
+                        "stats": dnsd_stats(dnsd["stats"])},
+            "errors": len(errors),
+            "first_error": errors[0] if errors else None,
+            "checks": {"all_connected": not errors,
+                       "cache_hit_on_repeat": passes > 1 and queries <= 2 * n},
+        }
+        return save_soak_result(scenario, n, label, rtt, [dnsd], zone, extra)
+    finally:
+        stop(scenario)
+        for info in clean:
+            stop_dnsd(info["tag"])
+        set_rtt(0)
+
+
 def stop_dnsd_all():
     for f in list(PIDS.glob("dnsd-*.pid")) + [PIDS / "sink6.pid"]:
         if not f.exists():
@@ -1408,10 +1533,30 @@ def stop_dnsd_all():
 def report(pattern="*.json", markdown=False, files=None):
     rows = []
     dns_rows = []
+    soak_rows = []
     for f in (files if files is not None else sorted(RESULTS.glob(pattern))):
         d = json.loads(f.read_text())
         commit = (d.get("git") or {}).get("commit", "")[:8]
         if d.get("kind") == "dns":
+            if d.get("subcommand") == "soak":
+                rss = d.get("rss_kb") or {}
+                delta = (rss.get("delta_peak") or {}).get("server")
+                soak_rows.append({
+                    "scenario": d.get("scenario", "?"),
+                    "n": d.get("n") or 0,
+                    "cache": d.get("cache_size"),
+                    "disabled": "yes" if d.get("disable_cache") else "no",
+                    "delay": d.get("dns_delay_ms") or 0,
+                    "passes": " / ".join(f"{v:.2f}"
+                                         for v in (d.get("passes_ms_per_op") or [])),
+                    "rss": "—" if delta is None else f"{delta / 1024:.1f}",
+                    "queries": (d.get("queries") or {}).get("total"),
+                    "checks": "ok" if all((d.get("checks") or {}).values())
+                              else "FAIL",
+                    "label": d.get("label", ""),
+                    "file": f.name,
+                })
+                continue
             q = d.get("queries") or {}
             lat = d.get("latency_ms") or {}
             checks = d.get("checks") or {}
@@ -1454,7 +1599,7 @@ def report(pattern="*.json", markdown=False, files=None):
             "commit": commit,
             "file": f.name,
         })
-    if not rows and not dns_rows:
+    if not rows and not dns_rows and not soak_rows:
         sys.exit("no results yet")
     fmt = lambda v: "—" if v is None else f"{v:.1f}" if isinstance(v, float) else str(v)
     blocks = []
@@ -1474,6 +1619,15 @@ def report(pattern="*.json", markdown=False, files=None):
             lines.append(f"| {r['scenario']} | {r['sub']} | {r['n']} | {fmt(r['p50'])} | {fmt(r['p95'])} | "
                          f"{r['queries']} | {fmt(r['per_name'])} | {r['received']} | {r['checks']} | "
                          f"{r['label']} | {r['commit']} |")
+        blocks.append("\n".join(lines))
+    if soak_rows:
+        lines = ["| dns soak | names | cache_size | disabled | dnsd delay ms | "
+                 "ms/op per pass | RSS server Δ MiB | queries | checks | label |",
+                 "|---|---|---|---|---|---|---|---|---|---|"]
+        for r in soak_rows:
+            lines.append(f"| {r['scenario']} | {r['n']} | {fmt(r['cache'])} | {r['disabled']} | "
+                         f"{r['delay']} | {r['passes']} | {r['rss']} | {fmt(r['queries'])} | "
+                         f"{r['checks']} | {r['label']} |")
         blocks.append("\n".join(lines))
     table = "\n\n".join(blocks)
     say(table)
@@ -1734,7 +1888,8 @@ def main():
     p = sub.add_parser("check"); p.add_argument("scenario")
     p = sub.add_parser("dns")
     p.add_argument("scenario")
-    p.add_argument("subcommand", choices=["cold", "warm", "stampede", "dead", "leak"])
+    p.add_argument("subcommand",
+                   choices=["cold", "warm", "stampede", "dead", "leak", "soak"])
     p.add_argument("n", nargs="?", type=int, default=20)
     p.add_argument("--delay-ms", type=int, default=0)
     p.add_argument("--rtt", type=int, default=0)
@@ -1744,6 +1899,12 @@ def main():
                    help="Unbihex: use the dns.servers config shape instead of dns.upstream")
     p.add_argument("--no-soa", action="store_true",
                    help="dnsd: omit the SOA in AUTHORITY for NODATA/NXDOMAIN")
+    p.add_argument("--cache", type=int, default=None,
+                   help="soak: Unbihex dns.cache_size (default: the engine's own)")
+    p.add_argument("--no-cache", action="store_true",
+                   help="soak: set dns.disable_cache")
+    p.add_argument("--passes", type=int, default=2,
+                   help="soak: passes over the same names (2 = cold then warm)")
     p = sub.add_parser("versions"); p.add_argument("--update", action="store_true")
     p = sub.add_parser("table"); p.add_argument("pattern", nargs="?", default="*.json")
     p = sub.add_parser("bench")
@@ -1791,8 +1952,12 @@ def main():
     elif args.cmd == "check":
         check(args.scenario)
     elif args.cmd == "dns":
-        dns_run(args.scenario, args.subcommand, args.n, args.delay_ms,
-                args.label, args.rtt, args.timeout, args.dns_servers, args.no_soa)
+        if args.subcommand == "soak":
+            soak_run(args.scenario, args.n, args.cache, args.no_cache, args.passes,
+                     args.delay_ms, args.label, args.rtt)
+        else:
+            dns_run(args.scenario, args.subcommand, args.n, args.delay_ms,
+                    args.label, args.rtt, args.timeout, args.dns_servers, args.no_soa)
     elif args.cmd == "versions":
         sys.exit(versions(args.update))
     elif args.cmd == "table":

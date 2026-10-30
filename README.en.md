@@ -47,7 +47,7 @@ its numbers with this table directly.
 
 ### `wan` profile (16 cores, medians of 3 runs)
 
-Same stand, `--profile wan`: MTU 1500, GSO/TSO/GRO off, delay, 2 ms jitter, 0.1% loss. Ranges are
+Same stand, `--profile wan`: MTU 1500, GSO/TSO/GRO off, delay, 0.1% loss, up to 2 ms jitter when the delay is non-zero. Ranges are
 min–max within the run. These are the numbers CI refreshes on Pages.
 
 | Engine (release binaries) | ↓1 MB/s, RTT≈0 | ↑1 MB/s, RTT≈0 | TTFB, RTT≈0 | conn/s | RSS server/client |
@@ -85,7 +85,8 @@ engine).
 ## Link profile
 
 By default (`--profile wan`) `lo` becomes a link that behaves like a real one: MTU 1500,
-GSO/TSO/GRO off, delay rtt/2 each way, 2 ms jitter, 0.1% loss. `--profile loopback` keeps the old
+GSO/TSO/GRO off, delay rtt/2 each way, 0.1% loss, and up to 2 ms jitter when the delay is
+non-zero (jitter on a 0 ms link is pure reordering and pins cwnd at the initial window). `--profile loopback` keeps the old
 behaviour (MTU 65536, offloads on, delay only); the table and charts above were taken with it.
 
 - MTU 1500 alone changes nothing: with GSO on, segments are coalesced anyway. Direct loopback,
