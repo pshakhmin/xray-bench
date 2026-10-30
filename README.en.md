@@ -13,16 +13,30 @@ link give". The limitations are listed below — read them before quoting the nu
 
 ## Results
 
-One bench, one run, medians. Self-pair: the client and the server of the same engine, REALITY,
-loopback, 16 cores, RTT via `netem` on the tunnel port only. Base `5026c2d` (v0.2.2), 2026-10-29.
+The benchmark is a GitHub Actions runner (`ubuntu-latest`, 4 vCPU) with the `wan` profile: MTU 1500,
+GSO/TSO/GRO off, 0.1% loss, delay via `netem` on the tunnel port only. Below is the latest run;
+fresh numbers, charts and provenance are on **<https://pshakhmin.github.io/xray-bench/>**.
+
+| Engine (release binaries) | ↓1 MB/s | ↓8 MB/s | ↑1 MB/s | TTFB | conn/s | ↓1, RTT 50 ms | TTFB, RTT 50 |
+|---|---|---|---|---|---|---|---|
+| Xray 26.10.29 | 152 [140–164] | 191 | 162 | 2.5 ms | 559 | 40.6 | 154 ms |
+| sing-box 1.14.4 | 188 [181–194] | 207 | 188 | 2.4 ms | 395 | 44.3 | 153 ms |
+| Unbihex 0.2.3 (`test_server` 0.0.1) | 108 [108–108] | 133 | 119 | 1.6 ms | 150 | 19.3 | 153 ms |
+
+Run of 2026-10-30, commit `8dc2f29`; raw JSON lives in [`ci-results/`](ci-results) and the page is
+rebuilt by `python3 site/build.py`. Medians of two runs, min–max in brackets. The runner has
+4 vCPU: compare cells only within one run, never against other hardware.
+
+### Reference run: 16 cores, loopback (historical)
+
+The first run of the stand, before the `wan` profile existed: MTU 65536, offloads on, no loss,
+16 cores. Kept as the baseline for the PR #18 story; do not compare it with the CI numbers above.
 
 ![Throughput at RTT≈0: Xray 360/806/341, sing-box 540/1306/530, Unbihex stock 437/1011/386, Unbihex + PR #18 430/1163/411 MB/s](charts/throughput-rtt0.svg)
 
 ![Single stream at RTT≈0 and 50 ms: Unbihex stock falls from 437.5 to 5.8 MB/s, the others hold 86–104](charts/throughput-rtt50.svg)
 
 ![TTFB and connection rate at RTT≈0: best TTFB is Unbihex + PR #18 (1.98 ms), best conn/s is the same build (938)](charts/connections.svg)
-
-Exact numbers from the same runs:
 
 | Engine (self-pair) | ↓1, RTT≈0 | ↓8, RTT≈0 | ↑1, RTT≈0 | TTFB | conn/s | ↓1, RTT 50 ms | TTFB, RTT 50 |
 |---|---|---|---|---|---|---|---|
@@ -32,41 +46,17 @@ Exact numbers from the same runs:
 | Unbihex 0.2.2 + [PR #18](https://github.com/crystalmasta/unbihex/pull/18) | 430 MB/s | 1163 MB/s | 411 MB/s | 1.98 ms | 938 | 85.8 MB/s | 152 ms |
 
 These are protocol-layer numbers on loopback: compare cells with each other, not with a real link
-(see [Limitations](#limitations-important)). "PR #18" is the branch with the TUN, socket-buffer
-and REALITY changes from [unbihex#18](https://github.com/crystalmasta/unbihex/pull/18); "stock"
-is the released 0.2.2.
+(see [Limitations](#limitations-important)). "PR #18" is the branch with the TUN, socket-buffer and
+REALITY changes from [unbihex#18](https://github.com/crystalmasta/unbihex/pull/18); "stock" is the
+released 0.2.2.
 
-The charts and the table come from the same runs. `results/` is not committed, so the medians
-are duplicated in [`charts/data.json`](charts/data.json) with links to the source files;
-regenerate the images with `python3 charts/make_charts.py`.
+The charts and the table come from the same runs. `results/` is not committed, so the medians are
+duplicated in [`charts/data.json`](charts/data.json) with links to the source files; regenerate the
+images with `python3 charts/make_charts.py`.
 
 The Unbihex row is about the **engine build** (engine 0.1.1: stock 0.2.2 versus the PR #18 branch).
 Since 0.2.3 the Unbihex release is `unbihex-cli` plus a separate `test_server` with its own config
-schema; the stand installs those by default and measures them as `unbihex_release`, so do not compare
-its numbers with this table directly.
-
-### `wan` profile (16 cores, medians of 3 runs)
-
-Same stand, `--profile wan`: MTU 1500, GSO/TSO/GRO off, delay, 0.1% loss, up to 2 ms jitter when the delay is non-zero. Ranges are
-min–max within the run. These are the numbers CI refreshes on Pages.
-
-| Engine (release binaries) | ↓1 MB/s, RTT≈0 | ↑1 MB/s, RTT≈0 | TTFB, RTT≈0 | conn/s | RSS server/client |
-|---|---|---|---|---|---|
-| Xray 26.10.29 | 132 [103–155] | 93 | 7.2 ms (p95 10.9) | 168 | 37/35 MB |
-| sing-box 1.14.4 | 181 [108–182] | 168 | 7.1 ms (p95 11.5) | 379 | 61/62 MB |
-| Unbihex 0.2.3 (`test_server` 0.0.1) | 95 [79–99] | 100 | 6.4 ms (p95 10.9) | 380 | 8/8 MB |
-
-| Engine | ↓1 MB/s, RTT 50 ms | TTFB, RTT 50 ms |
-|---|---|---|
-| Xray 26.10.29 | 63.1 [60.4–65.6] | 155.8 ms |
-| sing-box 1.14.4 | 79.6 [75.5–80.0] | 155.0 ms |
-| Unbihex 0.2.3 | 49.5 [47.9–50.9] | 154.1 ms |
-
-What it shows immediately: with real segmentation absolute numbers are three times lower than the
-loopback table, `↓1` spread reaches 40% (0.1% loss plus slow start), and Unbihex and sing-box reach
-three times Xray's connection rate. `↓8` is deliberately absent: with the same total payload
-(64 MiB across all connections) it measures the start of eight streams rather than steady state and
-comes out below `↓1` on a lossy profile. That is the next semantic fix.
+schema; the stand installs those by default and measures them as `unbihex_release`.
 
 ## What is measured
 
@@ -87,7 +77,7 @@ engine).
 By default (`--profile wan`) `lo` becomes a link that behaves like a real one: MTU 1500,
 GSO/TSO/GRO off, delay rtt/2 each way, 0.1% loss, and up to 2 ms jitter when the delay is
 non-zero (jitter on a 0 ms link is pure reordering and pins cwnd at the initial window). `--profile loopback` keeps the old
-behaviour (MTU 65536, offloads on, delay only); the table and charts above were taken with it.
+behaviour (MTU 65536, offloads on, delay only); the reference run below was taken with it.
 
 - MTU 1500 alone changes nothing: with GSO on, segments are coalesced anyway. Direct loopback,
   256 MiB × 3 runs: 1413 MB/s (65536, GSO on) versus 602 MB/s (1500, GSO off) — that is the cost of
@@ -103,8 +93,8 @@ behaviour (MTU 65536, offloads on, delay only); the table and charts above were 
 `./stand.py report --stats` prints min–max, the number of runs and the spread next to each median:
 `!` marks a rejected run (errors, in-phase spread > 60%), `§` a metric whose spread exceeds 20%.
 
-Repeatability of the same binary between sessions on this machine: 1–6% for `down1`, up to 33% for
-`down8`. **Differences below ~15% are noise**; build claims on `stand.py ab` (alternating A/B) and on
+Repeatability of the same binary between sessions: 1–6% for `down1`, up to 33% for `down8` on the
+16-core host; on the CI runner the spread is visible in `report --stats` and on the page. **Differences below ~15% are noise**; build claims on `stand.py ab` (alternating A/B) and on
 metrics where the gap is a multiple of the spread.
 
 ## Topology
@@ -147,7 +137,7 @@ release): `UNBIHEX_REPO=/path/to/unbihex ./setup.sh`.
 
 ## CI and Pages
 
-Once a week [`.github/workflows/bench.yml`](.github/workflows/bench.yml) updates the pins
+CI is the source of truth. Once a week [`.github/workflows/bench.yml`](.github/workflows/bench.yml) updates the pins
 (`tools/pins.py --update`, every new asset verified by sha256), runs the stand on a GitHub runner and
 publishes the dashboard: **<https://pshakhmin.github.io/xray-bench/>**. Raw results of the last runs
 are committed to [`ci-results/`](ci-results).
