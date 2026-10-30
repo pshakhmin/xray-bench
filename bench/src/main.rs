@@ -447,6 +447,11 @@ async fn run_cmd(args: &[String]) -> Result<(), Box<dyn Error>> {
     let mut samples = Vec::with_capacity(runs);
 
     for run in 1..=runs {
+        // Time from the first byte of the run, not from the SOCKS reply: an engine
+        // that dials its outbound before answering SOCKS would otherwise hide its
+        // whole setup behind the handshake while an engine that dials on the first
+        // payload pays for it here.
+        let started = Instant::now();
         let (streams, setup_errors) =
             establish_connections(proxy, target, direct, conns).await;
         if streams.is_empty() {
@@ -466,7 +471,7 @@ async fn run_cmd(args: &[String]) -> Result<(), Box<dyn Error>> {
             )));
         }
 
-        let started = Instant::now();
+        let connect_seconds = started.elapsed().as_secs_f64();
         let mut tasks = JoinSet::new();
         for (index, stream) in streams.into_iter().enumerate() {
             let share = base + u64::from((index as u64) < remainder);
@@ -494,7 +499,8 @@ async fn run_cmd(args: &[String]) -> Result<(), Box<dyn Error>> {
             0.0
         };
         println!(
-            "{{\"run\":{run},\"mib\":{mib},\"conns\":{conns},\"seconds\":{seconds:.6},\"mbps\":{mbps:.3}}}"
+            "{{\"run\":{run},\"mib\":{mib},\"conns\":{conns},\"seconds\":{seconds:.6},\
+\"connect_seconds\":{connect_seconds:.6},\"mbps\":{mbps:.3}}}"
         );
         samples.push(mbps);
 
