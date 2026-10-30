@@ -1,0 +1,64 @@
+name: runner-smoke
+
+# Health check for the self-hosted benchmark runner (VM `xray-bench-runner`,
+# 192.168.1.130). Proves the things a bench run silently degrades without:
+# passwordless sudo, CAP_NET_ADMIN for tc/netem on lo, and the toolchain.
+#
+# Run it after any change to the runner host, or when the RTT 50 ms cells
+# start being skipped in ci-results.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, xray-bench]
+    timeout-minutes: 10
+    steps:
+      - name: Host identity
+        run: |
+          uname -a
+          echo "nproc=$(nproc)"
+          free -m | head -3
+          df -h / | tail -1
+          python3 --version
+          git --version
+
+      - name: Passwordless sudo
+        run: |
+          sudo -n true && echo "sudo: ok"
+
+      - name: Link emulation (tc/netem on lo)
+        # Same probe bench.yml uses; without it the RTT 50 ms cells are skipped.
+        run: |
+          mtu=$(cat /sys/class/net/lo/mtu)
+          if sudo tc qdisc add dev lo root handle 1: prio bands 4 \
+               priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 &&
+             sudo tc qdisc add dev lo parent 1:2 handle 20: netem delay 1ms loss 0.1% limit 20000 &&
+             sudo ip link set lo mtu 1500 &&
+             sudo ethtool -K lo gso off tso off gro off; then
+            echo "netem: ok"
+          else
+            echo "::error::link emulation unavailable on this runner"
+            exit 1
+          fi
+          sudo tc qdisc del dev lo root 2>/dev/null || true
+          sudo ip link set lo mtu "$mtu" 2>/dev/null || true
+          sudo ethtool -K lo gso on tso on gro on 2>/dev/null || true
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+
+      - name: CPU burn
+        run: |
+          python3 - <<'PY'
+          import time
+          t0 = time.time()
+          x = 0
+          for i in range(3_000_000):
+              x += i * i
+          print(f"3M iterations in {time.time() - t0:.2f}s ({x & 0xff})")
+          PY
