@@ -532,7 +532,7 @@ class PhaseSampler(threading.Thread):
         super().__init__(daemon=True)
         self.role_pids = role_pids
         self.interval = interval
-        self._stop = threading.Event()
+        self._stop_event = threading.Event()
         self.ports = set(tunnel_ports())
         self.sockets_max = 0
         self.retrans_total = 0
@@ -564,19 +564,19 @@ class PhaseSampler(threading.Thread):
                     break
 
     def run(self):
-        while not self._stop.is_set():
+        while not self._stop_event.is_set():
             try:
                 self.sample()
             except Exception:
                 pass
-            self._stop.wait(self.interval)
+            self._stop_event.wait(self.interval)
         try:
             self.sample()  # final sample, taken just before the thread is joined
         except Exception:
             pass
 
     def stop(self):
-        self._stop.set()
+        self._stop_event.set()
         self.join(timeout=max(2.0, self.interval * 3))
 
     def evidence(self):
