@@ -199,6 +199,35 @@ same over XHTTP) and `ubicl_branch_reality` / `ubicl_branch_xhttp` (a branch bui
 To add one, extend `scenarios.json` (`ports`, `socks`, `start` — command and arguments) and, if a
 new config is needed, add a template in `configs/` with `@VARIABLES@` (substituted by `setup.sh`).
 
+## Clients on one server
+
+`xray_xhttp` and `ubicl_xhttp` point at the same Xray server, as do `xray_reality` and
+`ubicl_xraysrv` — this compares the clients, not the servers. `wan` profile, no loss, RTT≈0, two
+runs of 5 measurements per cell:
+
+| client | ↓1 | ↓8 | ↑1 | TTFB | conn/s |
+|---|---|---|---|---|---|
+| Xray 26.10.29 | 107.5 | 284–356 | 158–163 | 1.0–1.1 ms | 1394–1564 |
+| Unbihex 0.2.3 | 119–122 | 773–805 | 200–204 | 3.6–6.3 ms | 500–515 |
+| Unbihex, branch | 121–127 | 383–430 | 206–226 | 0.8 ms | 1476–1542 |
+
+Over XHTTP the 0.2.3 release moves more data but dials a tunnel for every proxied connection: its
+defaults had `xmux.maxConcurrency: 1`, while Xray does not limit sessions at all. Hence 500 conn/s
+against 1400–1800 and a TTFB 3–6 times higher — XHTTP behaved like plain TCP. The fix (`xhttp:
+share pooled connections by default`, still on a branch) makes sessions share a pool of four
+connections. The price is ↓8 at RTT≈0: eight separate TCP windows carried 773–805, the shared pool
+carries 383–430. The client is still ahead of Xray, and connection setup no longer costs a
+handshake.
+
+At 50 ms the picture is even: ↓1 74 against 73, TTFB 52.1 against 52.3, conn/s 75 against 75. Do not
+compare ↓8 at 50 ms — netem itself is the bottleneck there, which is why the reference table keeps
+only ↓1 at 50 ms.
+
+```
+./stand.py bench --scenarios xray_xhttp,ubicl_xhttp,ubicl_branch_xhttp \
+    --rtt 0 --runs 5 --profile wan --loss 0
+```
+
 ## A/B: before and after a fix
 
 Comparing old and new binaries is the only honest way to show a fix's effect:
