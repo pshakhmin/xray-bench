@@ -221,13 +221,7 @@ _msg(
     "помечаются, а не скрываются.",
 )
 _msg("section.02.title", "Results", "Результаты")
-_msg(
-    "section.02.lede",
-    "Charts and tables come from the same JSON. Invalid results are marked, "
-    "not hidden; missing values are shown as — and are never guessed.",
-    "Графики и таблицы — из одного JSON. Невалидные результаты помечаются, а "
-    "не скрываются; пропуски показаны как — и никогда не додумываются.",
-)
+_msg("section.02.lede", "", "")
 _msg("section.03.title", "Cost & evidence", "Ресурсы и счётчики")
 _msg(
     "section.03.lede",
@@ -3480,8 +3474,8 @@ def section(section_id: str, number: str, title: str, lede: str, body: str) -> s
         f'<span class="sec-no" aria-hidden="true">{number}</span>'
         "<div>"
         f'<h2 id="{section_id}-title">{title}</h2>'
-        f'<p class="section-lede">{lede}</p>'
-        "</div></div>"
+        + (f'<p class="section-lede">{lede}</p>' if lede else "")
+        + "</div></div>"
         f"{body}</section>"
     )
 
