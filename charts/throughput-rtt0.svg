@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440" width="100%" role="img" aria-labelledby="chart-title chart-desc" font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
 <title id="chart-title">Throughput at RTT ≈ 0</title>
-<desc id="chart-desc">Grouped bar chart of median throughput in MB/s at RTT close to zero for Xray 26.10.29, sing-box 1.14.4 and Unbihex 0.2.2. Each engine shows single-stream download, eight-stream download and single-stream upload. sing-box 1.14.4 leads all three metrics (539.8, 1306.4 and 529.7 MB/s); Unbihex 0.2.2 records 437.5, 1011.0 and 386.0 MB/s.</desc>
+<desc id="chart-desc">Grouped bar chart of median throughput in MB/s at RTT close to zero for Xray 26.10.29, sing-box 1.14.4 and Unbihex 0.2.5. Each engine shows single-stream download, eight-stream download and single-stream upload. Unbihex 0.2.5 leads all three metrics (328.7, 1092.0 and 318.5 MB/s); Xray records 254.5, 614.8 and 240.5 MB/s.</desc>
 <text x="32" y="38" font-size="19" fill="#747987" font-weight="650">Throughput at RTT ≈ 0</text>
 <text x="32" y="58" font-size="11.5" fill="#747987">Median MB/s through SOCKS · higher is better</text>
 <text x="56" y="95" font-size="10" fill="#747987" text-anchor="end" font-weight="500">MB/s</text>
@@ -20,35 +20,35 @@
 <text x="56" y="143.97" font-size="10" fill="#747987" text-anchor="end">1200</text>
 <line x1="64" y1="104" x2="848" y2="104" stroke="#8a94a4" stroke-width="1" stroke-opacity="0.3"/>
 <text x="56" y="107.4" font-size="10" fill="#747987" text-anchor="end">1400</text>
-<rect x="137.67" y="326.92" width="34" height="33.08" rx="3" fill="#0e7490"/>
-<text x="154.67" y="320.92" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">180.9</text>
+<rect x="137.67" y="313.46" width="34" height="46.54" rx="3" fill="#0e7490"/>
+<text x="154.67" y="307.46" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">254.5</text>
 <text x="154.67" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓1</text>
-<rect x="177.67" y="260.51" width="34" height="99.49" rx="3" fill="#0e7490"/>
-<text x="194.67" y="254.51" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">544.1</text>
+<rect x="177.67" y="247.58" width="34" height="112.42" rx="3" fill="#0e7490"/>
+<text x="194.67" y="241.58" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">614.8</text>
 <text x="194.67" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓8</text>
-<rect x="217.67" y="324.51" width="34" height="35.49" rx="3" fill="#0e7490"/>
-<text x="234.67" y="318.51" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">194.1</text>
+<rect x="217.67" y="316.03" width="34" height="43.97" rx="3" fill="#0e7490"/>
+<text x="234.67" y="310.03" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">240.5</text>
 <text x="234.67" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↑1</text>
 <text x="194.67" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">Xray 26.10.29</text>
-<rect x="399" y="316.21" width="34" height="43.79" rx="3" fill="#7c3aed"/>
-<text x="416" y="310.21" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">239.5</text>
+<rect x="399" y="312.54" width="34" height="47.46" rx="3" fill="#7c3aed"/>
+<text x="416" y="306.54" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">259.5</text>
 <text x="416" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓1</text>
-<rect x="439" y="236.41" width="34" height="123.59" rx="3" fill="#7c3aed"/>
-<text x="456" y="230.41" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">675.9</text>
+<rect x="439" y="210.91" width="34" height="149.09" rx="3" fill="#7c3aed"/>
+<text x="456" y="204.91" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">815.3</text>
 <text x="456" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓8</text>
-<rect x="479" y="317.56" width="34" height="42.44" rx="3" fill="#7c3aed"/>
-<text x="496" y="311.56" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">232.1</text>
+<rect x="479" y="310.25" width="34" height="49.75" rx="3" fill="#7c3aed"/>
+<text x="496" y="304.25" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">272.1</text>
 <text x="496" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↑1</text>
 <text x="456" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">sing-box 1.14.4</text>
-<rect x="660.33" y="313.63" width="34" height="46.37" rx="3" fill="#b45309"/>
-<text x="677.33" y="307.63" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">253.6</text>
+<rect x="660.33" y="299.89" width="34" height="60.11" rx="3" fill="#b45309"/>
+<text x="677.33" y="293.89" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">328.7</text>
 <text x="677.33" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓1</text>
-<rect x="700.33" y="237.32" width="34" height="122.68" rx="3" fill="#b45309"/>
-<text x="717.33" y="231.32" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">670.9</text>
+<rect x="700.33" y="160.31" width="34" height="199.69" rx="3" fill="#b45309"/>
+<text x="717.33" y="154.31" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">1092.0</text>
 <text x="717.33" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↓8</text>
-<rect x="740.33" y="314.78" width="34" height="45.22" rx="3" fill="#b45309"/>
-<text x="757.33" y="308.78" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">247.3</text>
+<rect x="740.33" y="301.76" width="34" height="58.24" rx="3" fill="#b45309"/>
+<text x="757.33" y="295.76" font-size="10" fill="#747987" text-anchor="middle" font-weight="600">318.5</text>
 <text x="757.33" y="378" font-size="10" fill="#747987" text-anchor="middle" font-weight="500">↑1</text>
-<text x="717.33" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">Unbihex 0.2.3</text>
+<text x="717.33" y="400" font-size="11.5" fill="#747987" text-anchor="middle" font-weight="600">Unbihex 0.2.5</text>
 <text x="32" y="426" font-size="10" fill="#747987">Medians · loopback, 16 cores · netem on the tunnel port only</text>
 </svg>

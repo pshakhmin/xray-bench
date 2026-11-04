@@ -37,29 +37,28 @@ an engine difference.
 
 ### Reference run: 16 cores, wan
 
-The `wan` profile: MTU 1500, offloads off, no loss, 16 cores, released binaries (Unbihex 0.2.3 —
+The `wan` profile: MTU 1500, offloads off, no loss, 16 cores, released binaries (Unbihex 0.2.5 —
 `test_server` and `unbihex-cli` from `main`). The run clock starts before the connections are
 established: otherwise an engine that brings the tunnel up first and only then answers SOCKS hides
 its setup inside the handshake, while an engine that answers at once pays for it in the measurement.
 How much went into the setup is visible as `connect_seconds` in every result.
 
-![Throughput at RTT≈0: Xray 181/544/194, sing-box 240/676/232, Unbihex 254/671/247 MB/s](charts/throughput-rtt0.svg)
+![Throughput at RTT≈0: Xray 254/615/240, sing-box 260/815/272, Unbihex 329/1092/319 MB/s](charts/throughput-rtt0.svg)
 
-![Single stream at RTT≈0 and 50 ms: Unbihex 253.6 → 54.9 MB/s, Xray 180.9 → 67.8, sing-box 239.5 → 71.5](charts/throughput-rtt50.svg)
+![Single stream at RTT≈0 and 50 ms: Unbihex 328.7 → 72.2 MB/s, Xray 254.5 → 68.7, sing-box 259.5 → 71.9](charts/throughput-rtt50.svg)
 
-![TTFB and connection rate at RTT≈0: Unbihex has the best median TTFB (2.82 ms) and the highest connection rate (890 conn/s); Xray sits at 3.46 ms and 540](charts/connections.svg)
+![TTFB and connection rate at RTT≈0: Unbihex has the best median TTFB (1.66 ms) and the highest connection rate (2005 conn/s); Xray sits at 3.06 ms and 580](charts/connections.svg)
 
-| Engine (self-pair) | ↓1, RTT≈0 | ↓8, RTT≈0 | ↑1, RTT≈0 | TTFB | conn/s | ↓1, RTT 50 ms | TTFB, RTT 50 |
-|---|---|---|---|---|---|---|---|
-| Xray 26.10.29 | 181 MB/s | 544 MB/s | 194 MB/s | 3.46 ms | 540 | 67.8 MB/s | 155 ms |
-| sing-box 1.14.4 | 240 MB/s | 676 MB/s | 232 MB/s | 3.46 ms | 635 | 71.5 MB/s | 156 ms |
-| Unbihex 0.2.3 | 254 MB/s | 671 MB/s | 247 MB/s | 2.82 ms | 890 | 54.9 MB/s | 154 ms |
+| Engine (self-pair) | ↓1, RTT≈0 | ↓8, RTT≈0 | ↑1, RTT≈0 | TTFB | conn/s | ↓1, RTT 50 ms | TTFB, RTT 50 | conn/s, RTT 50 ms |
+|---|---|---|---|---|---|---|---|---|
+| Xray 26.10.29 | 254 MB/s | 615 MB/s | 240 MB/s | 3.06 ms | 580 | 68.7 MB/s | 154 ms | 19.1 |
+| sing-box 1.14.4 | 260 MB/s | 815 MB/s | 272 MB/s | 2.97 ms | 620 | 71.9 MB/s | 155 ms | 19.2 |
+| Unbihex 0.2.5 | 329 MB/s | 1092 MB/s | 319 MB/s | 1.66 ms | 2005 | 72.2 MB/s | 152 ms | 26.1 |
 
 These are protocol-layer numbers on a shaped loopback path: compare cells with each other, not with
-a real link (see [Limitations](#limitations-important)). At 50 ms Unbihex 0.2.3 trails both — the
-release still asks for a 4 MiB `SO_RCVBUF`. On the branch with the fix (default "leave the sockets
-alone" plus the bulk TLS read) the same runs give 305/937/298 MB/s at RTT≈0 and 71.2 MB/s at
-RTT 50 ms; the table will be refreshed once that is merged.
+a real link (see [Limitations](#limitations-important)). At 50 ms the three engines converge on ↓1
+to within a couple of percent: 72.2 for Unbihex against 71.9 for sing-box and 68.7 for Xray. On
+connection rate Unbihex stays ahead: 26.1 against 19.1 and 19.2 conn/s.
 
 The charts and the table come from the same runs. `results/` is not committed, so the medians are
 duplicated in [`charts/data.json`](charts/data.json) with links to the source files; regenerate the

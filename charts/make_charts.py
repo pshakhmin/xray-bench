@@ -74,25 +74,24 @@ STRINGS = {
         "rtt0_subtitle": "Median MB/s through SOCKS · higher is better",
         "rtt0_desc": (
             "Grouped bar chart of median throughput in MB/s at RTT close to zero for "
-            "Xray 26.10.29, sing-box 1.14.4 and Unbihex 0.2.2. Each engine shows "
+            "Xray 26.10.29, sing-box 1.14.4 and Unbihex 0.2.5. Each engine shows "
             "single-stream download, eight-stream download and single-stream upload. "
-            "sing-box 1.14.4 leads all three metrics (539.8, 1306.4 and 529.7 MB/s); "
-            "Unbihex 0.2.2 records 437.5, 1011.0 and 386.0 MB/s."
+            "Unbihex 0.2.5 leads all three metrics (328.7, 1092.0 and 318.5 MB/s); "
+            "Xray records 254.5, 614.8 and 240.5 MB/s."
         ),
         "rtt50_title": "Single-stream download: RTT ≈ 0 vs 50 ms",
         "rtt50_subtitle": "↓1 median MB/s · higher is better",
         "rtt50_desc": (
             "Single-stream download throughput in MB/s at RTT close to zero and at "
-            "50 ms of emulated RTT. Xray falls from 360.6 to 88.6 and sing-box from "
-            "539.8 to 103.6 MB/s. Unbihex 0.2.2 collapses from 437.5 to 5.8 MB/s, a "
-            "75 times drop, while Xray and sing-box stay at 88.6 and 103.6 MB/s."
+            "50 ms of emulated RTT. Xray falls from 254.5 to 68.7 and sing-box from "
+            "259.5 to 71.9 MB/s. Unbihex 0.2.5 falls from 328.7 to 72.2 MB/s."
         ),
         "rtt50_legend_zero": "RTT ≈ 0",
         "rtt50_legend_50": "RTT 50 ms",
         "rtt50_drop": "{n}× drop",
         "rtt50_note1": (
-            "At 8 streams and 50 ms, netem itself is the bottleneck, so only ↓1 is "
-            "compared at 50 ms."
+            "For throughput at 50 ms only ↓1 is compared: at 8 streams netem "
+            "itself is the bottleneck."
         ),
         "rtt50_note2": "MB/s as reported by the bench · medians over the recorded runs.",
         "conn_title": "Latency and connection rate at RTT ≈ 0",
@@ -102,10 +101,10 @@ STRINGS = {
         "conn_desc": (
             "Two panels at RTT close to zero. Left: time to first byte in ms, median "
             "bar and p95 whisker, lower is better. Right: connections per second, "
-            "higher is better. Unbihex 0.2.2 has the highest p95 at 11.59 ms and the "
-            "lowest connection rate at 275.8 conn/s. Xray: 3.95 ms median, 4.97 ms "
-            "p95, 448 conn/s. sing-box: 3.34 ms median, 4.03 ms p95, 563 conn/s. "
-            "Unbihex 0.2.2: 5.57 ms median."
+            "higher is better. Unbihex 0.2.5 has the lowest TTFB (1.66 ms median, "
+            "1.76 ms p95) and the highest connection rate (2004.8 conn/s). Xray: "
+            "3.06 ms median, 3.87 ms p95, 580.2 conn/s. sing-box: 2.97 ms median, "
+            "3.69 ms p95, 620.4 conn/s."
         ),
         "conn_panel_a": "Time to first byte",
         "conn_panel_a_sub": "ms · bar = median, whisker = p95 · lower is better",
@@ -149,26 +148,25 @@ STRINGS = {
         "rtt0_desc": (
             "Сгруппированная столбчатая диаграмма медианной пропускной способности в "
             "MB/s при RTT, близком к нулю, для Xray 26.10.29, sing-box 1.14.4 и "
-            "Unbihex 0.2.2. Для каждого движка показаны скачивание одним потоком, "
-            "скачивание восемью потоками и отдача одним потоком. sing-box 1.14.4 "
-            "лидирует по всем трём метрикам (539.8, 1306.4 и 529.7 MB/s); Unbihex "
-            "0.2.2 показывает 437.5, 1011.0 и 386.0 MB/s."
+            "Unbihex 0.2.5. Для каждого движка показаны скачивание одним потоком, "
+            "скачивание восемью потоками и отдача одним потоком. Unbihex 0.2.5 "
+            "лидирует по всем трём метрикам (328.7, 1092.0 и 318.5 MB/s); Xray "
+            "показывает 254.5, 614.8 и 240.5 MB/s."
         ),
         "rtt50_title": "Один поток, скачивание: RTT ≈ 0 и 50 мс",
         "rtt50_subtitle": "↓1 медиана MB/s · больше — лучше",
         "rtt50_desc": (
             "Пропускная способность скачивания одним потоком в MB/s при RTT, близком "
-            "к нулю, и при эмулируемых 50 мс RTT. Xray падает с 360.6 до 88.6, "
-            "sing-box — с 539.8 до 103.6 MB/s. Unbihex 0.2.2 обрушивается с 437.5 до "
-            "5.8 MB/s, падение в 75 раз, тогда как Xray и sing-box держатся на 88.6 и "
-            "103.6 MB/s."
+            "к нулю, и при эмулируемых 50 мс RTT. Xray падает с 254.5 до 68.7, "
+            "sing-box — с 259.5 до 71.9 MB/s. Unbihex 0.2.5 падает с 328.7 до "
+            "72.2 MB/s."
         ),
         "rtt50_legend_zero": "RTT ≈ 0",
         "rtt50_legend_50": "RTT 50 мс",
         "rtt50_drop": "падение в {n}×",
         "rtt50_note1": (
-            "При 8 потоках и 50 мс узкое место — сам netem, поэтому при 50 мс "
-            "сравнивается только ↓1."
+            "Для пропускной способности при 50 мс сравнивается только ↓1: на 8 "
+            "потоках узкое место — сам netem."
         ),
         "rtt50_note2": "MB/s по данным стенда · медианы по записанным прогонам.",
         "conn_title": "Задержка и темп соединений при RTT ≈ 0",
@@ -178,10 +176,10 @@ STRINGS = {
         "conn_desc": (
             "Две панели при RTT, близком к нулю. Слева: время до первого байта в мс, "
             "столбик медианы и ус p95, меньше — лучше. Справа: соединений в секунду, "
-            "больше — лучше. У Unbihex 0.2.2 самый высокий p95 — 11.59 мс, и самый "
-            "низкий темп соединений — 275.8 conn/s. Xray: медиана 3.95 мс, p95 "
-            "4.97 мс, 448 conn/s. sing-box: медиана 3.34 мс, p95 4.03 мс, 563 conn/s. "
-            "Unbihex 0.2.2: медиана 5.57 мс."
+            "больше — лучше. У Unbihex 0.2.5 самый низкий TTFB (медиана 1.66 мс, p95 "
+            "1.76 мс) и самый высокий темп соединений (2004.8 conn/s). Xray: медиана "
+            "3.06 мс, p95 3.87 мс, 580.2 conn/s. sing-box: медиана 2.97 мс, p95 "
+            "3.69 мс, 620.4 conn/s."
         ),
         "conn_panel_a": "Время до первого байта",
         "conn_panel_a_sub": "мс · столбик = медиана, усы = p95 · меньше — лучше",

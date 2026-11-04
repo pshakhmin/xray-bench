@@ -491,10 +491,11 @@ _msg("table.throughput.caption",
 _msg("table.rtt.aria", "Single-stream download table",
      "Таблица скачивания в один поток")
 _msg("table.rtt.caption",
-     "Single-stream download at RTT ≈ 0 and at 50 ms. MB/s as printed by the "
-     "bench (bytes/1e6); min–max in smaller type where recorded.",
-     "Скачивание в один поток при RTT ≈ 0 и 50 ms. MB/s как печатает бенч "
-     "(bytes/1e6); мин–макс мельче, где записан.")
+     "Single-stream download at RTT ≈ 0 and at 50 ms, with TTFB at 50 ms. MB/s "
+     "as printed by the bench (bytes/1e6); min–max in smaller type where recorded.",
+     "Скачивание в один поток при RTT ≈ 0 и 50 ms, плюс TTFB при 50 ms. MB/s "
+     "как печатает бенч (bytes/1e6); мин–макс мельче, где записан.")
+_msg("table.rtt.ttfb50", "TTFB, RTT 50 ms", "TTFB, RTT 50 мс")
 _msg("table.ttfb.aria", "Time to first byte table",
      "Таблица времени до первого байта")
 _msg("table.ttfb.caption",
@@ -674,6 +675,27 @@ _msg("ref.story.neutral",
      "On the RTT ≈ 0 run {label} records {conns} conn/s and {ttfb} ms TTFB p95.",
      "На прогоне с RTT ≈ 0 {label} показывает {conns} conn/s и TTFB p95 "
      "{ttfb} ms.")
+_msg("ref.story.conns50",
+     "At 50 ms {label} keeps {conns} conn/s against {xray} for Xray and "
+     "{singbox} for sing-box.",
+     "При 50 мс у {label} {conns} conn/s против {xray} у Xray и {singbox} у "
+     "sing-box.")
+_msg("ref.rtt50.title", "At 50 ms", "При 50 мс")
+_msg("ref.rtt50.caption",
+     "RTT 50 ms: single-stream throughput, TTFB and connection rate.",
+     "RTT 50 ms: пропускная способность одного потока, TTFB и темп соединений.")
+_msg("ref.rtt50.note",
+     "Only ↓1 is a throughput comparison at 50 ms: at 8 streams netem itself "
+     "is the bottleneck. TTFB and the connection rate are shown for "
+     "completeness; ↓8 and ↑1 remain in the raw JSON.",
+     "При 50 мс только ↓1 — сравнение пропускной способности: на 8 потоках "
+     "узкое место — сам netem. TTFB и темп соединений показаны для полноты; "
+     "↓8 и ↑1 остаются в исходном JSON.")
+_msg("ref.rtt50.engine", "Engine", "Движок")
+_msg("ref.rtt50.down1", "↓1 MB/s", "↓1 MB/s")
+_msg("ref.rtt50.ttfb", "TTFB median, ms", "TTFB медиана, ms")
+_msg("ref.rtt50.ttfb_p95", "TTFB p95, ms", "TTFB p95, ms")
+_msg("ref.rtt50.conns", "conn/s", "conn/s")
 _msg("ref.meta_missing",
      "Reference metadata (<code>charts/data.json</code>) is unavailable in this build.",
      "Метаданные референса (<code>charts/data.json</code>) в этой сборке "
@@ -2224,6 +2246,7 @@ def table_rtt(groups) -> str:
             f'<th scope="row">{row_head(group)}</th>'
             f"{metric_cell(group.rec('0'), 'down1')}"
             f"{metric_cell(group.rec('50'), 'down1')}"
+            f"{plain_num_cell(group.rec('50'), 'ttfb', 'median_ms', 2)}"
             "</tr>"
         )
     return (
@@ -2235,6 +2258,7 @@ def table_rtt(groups) -> str:
         f'<th scope="col">{t("table.engine")}</th>'
         '<th scope="col">↓1, RTT ≈ 0</th>'
         '<th scope="col">↓1, RTT 50 ms</th>'
+        f'<th scope="col">{t("table.rtt.ttfb50")}</th>'
         "</tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table></div>"
@@ -3187,6 +3211,9 @@ def reference_story(data: dict) -> str:
     singbox_conns = ref_get(data, "rtt0", "singbox", "conns_per_sec")
     xray_p95 = ref_get(data, "rtt0", "xray", "ttfb_p95")
     singbox_p95 = ref_get(data, "rtt0", "singbox", "ttfb_p95")
+    conns50 = ref_get(data, "rtt50", "unbihex_stock", "conns_per_sec")
+    xray_conns50 = ref_get(data, "rtt50", "xray", "conns_per_sec")
+    singbox_conns50 = ref_get(data, "rtt50", "singbox", "conns_per_sec")
 
     sentences = []
     if base is not None and shaped is not None:
@@ -3244,6 +3271,21 @@ def reference_story(data: dict) -> str:
                     ttfb=fmt_num(ttfb_p95, 2),
                 )
             )
+
+    if (
+        conns50 is not None
+        and xray_conns50 is not None
+        and singbox_conns50 is not None
+    ):
+        sentences.append(
+            t(
+                "ref.story.conns50",
+                label=label,
+                conns=fmt_num(conns50, 1),
+                xray=fmt_num(xray_conns50, 1),
+                singbox=fmt_num(singbox_conns50, 1),
+            )
+        )
 
     return tight_units(" ".join(sentences))
 
@@ -3317,6 +3359,46 @@ def reference_source_files(data: dict) -> list:
     return [path for path in listed if isinstance(path, str) and path in referenced]
 
 
+def reference_rtt50_table(data: dict) -> str:
+    engines = data.get("engines") if isinstance(data.get("engines"), list) else []
+    rows = []
+    for engine in engines:
+        if not isinstance(engine, dict):
+            continue
+        engine_id = engine.get("id")
+        label = engine.get("label")
+        if not isinstance(engine_id, str) or not isinstance(label, str):
+            continue
+        rows.append(
+            "<tr>"
+            f'<th scope="row"><span class="row-name">{esc(label)}</span></th>'
+            f'<td class="num">{fmt_num(ref_get(data, "rtt50", engine_id, "down1"), 1)}</td>'
+            f'<td class="num">{fmt_num(ref_get(data, "rtt50", engine_id, "ttfb_median"), 1)}</td>'
+            f'<td class="num">{fmt_num(ref_get(data, "rtt50", engine_id, "ttfb_p95"), 1)}</td>'
+            f'<td class="num">{fmt_num(ref_get(data, "rtt50", engine_id, "conns_per_sec"), 1)}</td>'
+            "</tr>"
+        )
+    if not rows:
+        return ""
+    return (
+        f'<h3 class="ref-table-title">{t("ref.rtt50.title")}</h3>'
+        f'<p class="ref-table-note">{t("ref.rtt50.note")}</p>'
+        '<div class="table-wrap" role="region" tabindex="0" '
+        f'aria-label="{esc(t("ref.rtt50.title"))}">'
+        '<table class="t-rtt t-rtt50">'
+        f"<caption>{t('ref.rtt50.caption')}</caption>"
+        "<thead><tr>"
+        f'<th scope="col">{t("ref.rtt50.engine")}</th>'
+        f'<th scope="col">{t("ref.rtt50.down1")}</th>'
+        f'<th scope="col">{t("ref.rtt50.ttfb")}</th>'
+        f'<th scope="col">{t("ref.rtt50.ttfb_p95")}</th>'
+        f'<th scope="col">{t("ref.rtt50.conns")}</th>'
+        "</tr></thead><tbody>"
+        + "".join(rows)
+        + "</tbody></table></div>"
+    )
+
+
 def render_reference_section(data, copied_charts):
     source_files = reference_source_files(data)
     english_charts = copied_charts.get("en", [])
@@ -3366,6 +3448,11 @@ def render_reference_section(data, copied_charts):
         parts.append("".join(figures))
     else:
         parts.append(f'<p class="missing-note">{t("ref.no_svg")}</p>')
+
+    if data:
+        table = reference_rtt50_table(data)
+        if table:
+            parts.append(table)
 
     if source_files:
         items = "".join(
@@ -3740,6 +3827,7 @@ tbody tr:hover{background:var(--surface-2)}
 .row-meta{display:block;margin-top:.12rem;font-family:var(--mono);font-size:.6rem;color:var(--muted);line-height:1.4;white-space:normal}
 .t-throughput{min-width:580px}
 .t-rtt{min-width:520px}
+.t-rtt50{min-width:640px}
 .t-ttfb{min-width:560px}
 .t-conns{min-width:560px}
 .t-binaries{min-width:520px}
@@ -3801,6 +3889,8 @@ tbody tr:hover{background:var(--surface-2)}
 .ref-meta span{padding:.24rem .5rem;border:1px solid var(--line);background:var(--surface);font-family:var(--mono);font-size:.63rem;color:var(--muted)}
 .ref-meta b{font-weight:600;color:var(--ink);letter-spacing:.02em}
 .ref-story{max-width:76ch;margin:0 0 1.5rem;font-size:.94rem;line-height:1.65;color:var(--ink-2)}
+.ref-table-title{margin:1.8rem 0 .35rem;font-size:.95rem;font-weight:650}
+.ref-table-note{max-width:76ch;margin:0;color:var(--ink-2);font-size:.84rem;line-height:1.55}
 .ref-figure{margin:1.4rem 0 1.8rem;padding:clamp(.55rem,2vw,1.15rem);border:1px solid var(--line);background:var(--ref-bg)}
 .ref-figure img{display:block;width:100%;height:auto}
 .ref-figure figcaption{margin-top:.7rem;padding-top:.65rem;border-top:1px solid var(--line);font-family:var(--mono);font-size:.64rem;line-height:1.5;letter-spacing:.03em;color:var(--muted)}

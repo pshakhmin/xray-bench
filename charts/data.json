@@ -1,18 +1,18 @@
 {
  "source": {
-  "provenance_commit": "8ab3fc62a5a99baa35c71feadae558a6825a39c4",
-  "release": "0.2.3",
-  "date": "2026-10-30",
+  "provenance_commit": "a0f1ad1e015ea0611cedde9ce932a32ac323db2f",
+  "release": "0.2.5",
+  "date": "2026-11-02",
   "machine": "16 cores",
   "path": "wan (MTU 1500, offloads off)",
   "rtt_method": "netem on the tunnel port only",
   "files": [
-   "results/xray_reality-rtt0--20261030T220642Z.json",
-   "results/xray_reality-rtt50--20261030T220733Z.json",
-   "results/singbox_reality-rtt0--20261030T220646Z.json",
-   "results/singbox_reality-rtt50--20261030T220808Z.json",
-   "results/unbihex_release-rtt0--20261030T220651Z.json",
-   "results/unbihex_release-rtt50--20261030T220911Z.json"
+   "results/xray_reality-rtt0--20261101T233814Z.json",
+   "results/xray_reality-rtt50--20261101T233901Z.json",
+   "results/singbox_reality-rtt0--20261101T233819Z.json",
+   "results/singbox_reality-rtt50--20261101T233933Z.json",
+   "results/unbihex_release-rtt0--20261101T233822Z.json",
+   "results/unbihex_release-rtt50--20261101T234002Z.json"
   ]
  },
  "units": {
@@ -21,7 +21,7 @@
   "conns": "conn/s"
  },
  "notes": {
-  "rtt50": "Only down1 is compared at 50 ms: at 8 streams and 50 ms netem itself is the bottleneck.",
+  "rtt50": "At 50 ms only down1 is a throughput comparison: at 8 streams netem itself is the bottleneck. TTFB and the connection rate are recorded at 50 ms too.",
   "values": "Medians over the recorded runs. MB/s is decimal, as printed by the bench."
  },
  "engines": [
@@ -32,8 +32,8 @@
     "Xray",
     "26.10.29"
    ],
-   "source_rtt0": "results/xray_reality-rtt0--20261030T220642Z.json",
-   "source_rtt50": "results/xray_reality-rtt50--20261030T220733Z.json"
+   "source_rtt0": "results/xray_reality-rtt0--20261101T233814Z.json",
+   "source_rtt50": "results/xray_reality-rtt50--20261101T233901Z.json"
   },
   {
    "id": "singbox",
@@ -42,58 +42,64 @@
     "sing-box",
     "1.14.4"
    ],
-   "source_rtt0": "results/singbox_reality-rtt0--20261030T220646Z.json",
-   "source_rtt50": "results/singbox_reality-rtt50--20261030T220808Z.json"
+   "source_rtt0": "results/singbox_reality-rtt0--20261101T233819Z.json",
+   "source_rtt50": "results/singbox_reality-rtt50--20261101T233933Z.json"
   },
   {
    "id": "unbihex_stock",
-   "label": "Unbihex 0.2.3",
+   "label": "Unbihex 0.2.5",
    "label_lines": [
     "Unbihex",
-    "0.2.3"
+    "0.2.5"
    ],
-   "source_rtt0": "results/unbihex_release-rtt0--20261030T220651Z.json",
-   "source_rtt50": "results/unbihex_release-rtt50--20261030T220911Z.json"
+   "source_rtt0": "results/unbihex_release-rtt0--20261101T233822Z.json",
+   "source_rtt50": "results/unbihex_release-rtt50--20261101T234002Z.json"
   }
  ],
  "rtt0": {
   "xray": {
-   "down1": 180.9,
-   "down8": 544.1,
-   "up1": 194.1,
-   "ttfb_median": 3.41,
-   "ttfb_p95": 4.55,
-   "conns_per_sec": 539.5
+   "down1": 254.498,
+   "down8": 614.816,
+   "up1": 240.463,
+   "ttfb_median": 3.056,
+   "ttfb_p95": 3.869,
+   "conns_per_sec": 580.161
   },
   "singbox": {
-   "down1": 239.5,
-   "down8": 675.9,
-   "up1": 232.1,
-   "ttfb_median": 3.46,
-   "ttfb_p95": 4.1,
-   "conns_per_sec": 634.6
+   "down1": 259.541,
+   "down8": 815.316,
+   "up1": 272.059,
+   "ttfb_median": 2.974,
+   "ttfb_p95": 3.689,
+   "conns_per_sec": 620.393
   },
   "unbihex_stock": {
-   "down1": 253.6,
-   "down8": 670.9,
-   "up1": 247.3,
-   "ttfb_median": 2.82,
-   "ttfb_p95": 8.78,
-   "conns_per_sec": 889.5
+   "down1": 328.703,
+   "down8": 1092.037,
+   "up1": 318.488,
+   "ttfb_median": 1.657,
+   "ttfb_p95": 1.762,
+   "conns_per_sec": 2004.814
   }
  },
  "rtt50": {
   "xray": {
-   "down1": 67.8,
-   "ttfb_median": 154.85
+   "down1": 68.744,
+   "ttfb_median": 154.178,
+   "ttfb_p95": 158.19,
+   "conns_per_sec": 19.126
   },
   "singbox": {
-   "down1": 71.5,
-   "ttfb_median": 155.51
+   "down1": 71.853,
+   "ttfb_median": 155.105,
+   "ttfb_p95": 159.571,
+   "conns_per_sec": 19.237
   },
   "unbihex_stock": {
-   "down1": 54.9,
-   "ttfb_median": 153.64
+   "down1": 72.195,
+   "ttfb_median": 152.411,
+   "ttfb_p95": 155.258,
+   "conns_per_sec": 26.053
   }
  }
 }
